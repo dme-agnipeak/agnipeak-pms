@@ -1,0 +1,979 @@
+<!--
+  VINAYAK AGNIPEAK LLP — Smart Manufacturing PMS / MES  (v3 — Batch Workflow + Entry Edit/Delete Permissions)
+  Developed By: Sunil Tiwari | 9027965956 | connect@systemmaster.in | systemmaster.in
+  GO LIVE: run supabase_schema_v3.sql in Supabase SQL Editor, then host index.html on Netlify.
+  v3: New Supabase project · Admin-granted Edit/Delete of own entries · Auto timestamp · Batch No locked for non-admin · Batch delete (admin).
+-->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vinayak Agnipeak LLP — PMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+
+<script>
+/* ===== CONFIG ===== */
+const SUPABASE_URL = "https://uqifhymziceeibblwkkw.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxaWZoeW16aWNlZWliYmx3a2t3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNDYxNTMsImV4cCI6MjEwMDcyMjE1M30.sHS7jfUYoIPY0JKE4VUTLHHNllbhIui5TbPQJLRIviU";
+const GSHEET_URL   = "https://script.google.com/macros/s/AKfycbzPfGYzq6lTa5BayRjoPfMZHTWK4l5hlnzqYpaxH1F2AeeBOsX33dVEJ-04jYsqzzLkwA/exec";
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+<style>
+:root{--primary:#0f2557;--primary-light:#1e3a8a;--primary-dark:#0a1838;--accent:#f59e0b;--accent2:#f97316;
+--success:#10b981;--danger:#ef4444;--warning:#f59e0b;--info:#3b82f6;--teal:#14b8a6;
+--g50:#f9fafb;--g100:#f3f4f6;--g200:#e5e7eb;--g300:#d1d5db;--g400:#9ca3af;--g500:#6b7280;--g700:#374151;--g900:#111827;
+--bg:#eef1f6;--surface:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;
+--radius:12px;--radius-sm:8px;--radius-lg:18px;--shadow-sm:0 1px 2px rgba(0,0,0,.05);--shadow-lg:0 14px 34px -10px rgba(15,37,87,.22);--t:all .25s cubic-bezier(.4,0,.2,1)}
+[data-theme="dark"]{--bg:#0b1020;--surface:#141a2e;--text:#e8ecf4;--muted:#94a0b8;--line:#243049;--g50:#1a2238;--g100:#1e2740;--g200:#2a344e;--g500:#94a0b8;--g700:#cbd5e1;--g900:#f1f5f9}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+button{cursor:pointer;border:none;font:inherit}input,select,textarea{font:inherit}a{color:inherit}
+#toasts{position:fixed;top:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:10px}
+.toast{background:var(--surface);border-left:4px solid var(--primary);padding:13px 18px;border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);min-width:240px;max-width:380px;display:flex;gap:10px;align-items:center;font-size:.9em;animation:slin .3s;color:var(--text)}
+.toast.success{border-left-color:var(--success)}.toast.error{border-left-color:var(--danger)}.toast.warning{border-left-color:var(--warning)}.toast.info{border-left-color:var(--info)}
+@keyframes slin{from{transform:translateX(120%);opacity:0}to{transform:none;opacity:1}}
+.login-wrap{min-height:100vh;display:grid;place-items:center;padding:20px;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--primary-dark),var(--primary) 50%,#1e40af)}
+.login-wrap::before,.login-wrap::after{content:'';position:absolute;border-radius:50%}
+.login-wrap::before{width:620px;height:620px;background:radial-gradient(circle,rgba(245,158,11,.13),transparent 70%);top:-220px;right:-200px;animation:flo 9s ease-in-out infinite}
+.login-wrap::after{width:520px;height:520px;background:radial-gradient(circle,rgba(59,130,246,.16),transparent 70%);bottom:-170px;left:-160px;animation:flo 11s ease-in-out infinite reverse}
+@keyframes flo{0%,100%{transform:translate(0,0)}50%{transform:translate(34px,-30px)}}
+.login-card{width:100%;max-width:960px;background:var(--surface);border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 30px 60px -15px rgba(0,0,0,.55);display:grid;grid-template-columns:1.05fr 1fr;position:relative;z-index:1;animation:cardin .6s cubic-bezier(.16,1,.3,1)}
+@keyframes cardin{from{opacity:0;transform:translateY(22px) scale(.98)}to{opacity:1;transform:none}}
+.brand-side{background:linear-gradient(160deg,var(--primary-dark),var(--primary));color:#fff;padding:46px 42px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden}
+.brand-side::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 18% 28%,rgba(255,255,255,.05),transparent 50%),radial-gradient(circle at 82% 72%,rgba(245,158,11,.1),transparent 50%)}
+.bs-in{position:relative;z-index:1}
+.b-logo{display:inline-flex;align-items:center;gap:13px;margin-bottom:26px}
+.b-logo .ic{width:54px;height:54px;border-radius:14px;display:grid;place-items:center;font-size:1.5em;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 8px 22px rgba(245,158,11,.35);overflow:hidden}
+.b-logo .ic img{width:100%;height:100%;object-fit:cover}
+.b-name{font-family:'Sora';font-size:1.6em;font-weight:800;letter-spacing:.5px;line-height:1.05}
+.b-tag{font-size:.7em;opacity:.7;letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+.b-head{font-family:'Sora';font-size:1.45em;font-weight:700;line-height:1.3;margin-bottom:12px}
+.b-desc{font-size:.9em;line-height:1.7;opacity:.85;margin-bottom:24px}
+.feat{list-style:none}.feat li{display:flex;align-items:center;gap:12px;padding:8px 0;font-size:.88em;opacity:.94}
+.feat li i{width:26px;height:26px;background:rgba(255,255,255,.12);border-radius:50%;display:grid;place-items:center;font-size:.7em;color:var(--accent)}
+.form-side{padding:50px 46px;display:flex;flex-direction:column;justify-content:center;position:relative}
+.lang-fab{position:absolute;top:20px;right:20px;background:var(--g100);border:1px solid var(--line);color:var(--text);border-radius:20px;padding:6px 13px;font-size:.78em;font-weight:600;display:flex;gap:6px;align-items:center}
+.f-title{font-family:'Sora';font-size:1.7em;font-weight:700;color:var(--g900);margin-bottom:5px}
+.f-sub{color:var(--muted);font-size:.92em;margin-bottom:28px}
+.fg{margin-bottom:16px}.fl{display:block;font-size:.82em;font-weight:600;color:var(--g700);margin-bottom:7px}
+.fi{width:100%;padding:11px 15px;border:1.5px solid var(--line);border-radius:var(--radius-sm);font-size:.93em;background:var(--g50);color:var(--text);transition:var(--t)}
+.fi:focus{outline:none;border-color:var(--primary);background:var(--surface);box-shadow:0 0 0 4px rgba(15,37,87,.09)}
+.fi[readonly]{opacity:.7}
+.pw{position:relative}.pw .fi{padding-right:42px}.pw .eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;color:var(--g400);padding:4px 8px}
+.btn-lg{width:100%;padding:13px;border-radius:var(--radius-sm);font-weight:700;font-size:1em;color:#fff;background:linear-gradient(135deg,var(--primary),var(--primary-light));box-shadow:0 6px 16px rgba(15,37,87,.3);transition:var(--t);margin-top:6px}
+.btn-lg:hover{transform:translateY(-1px)}.btn-lg:disabled{opacity:.6;transform:none}
+.login-foot{text-align:center;padding:16px;color:rgba(255,255,255,.72);font-size:.8em;position:relative;z-index:1}.login-foot strong{color:#fff}
+#welcome{position:fixed;inset:0;background:linear-gradient(135deg,var(--primary-dark),var(--primary));z-index:10001;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;pointer-events:none;transition:opacity .4s}
+#welcome.show{opacity:1;pointer-events:auto}
+.wcheck{width:96px;height:96px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:2.8em;color:var(--success);animation:bin .6s cubic-bezier(.16,1,.3,1);box-shadow:0 0 60px rgba(255,255,255,.4)}
+@keyframes bin{0%{transform:scale(0)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+.wtext{color:#fff;font-family:'Sora';font-size:1.6em;font-weight:700}.wsub{color:rgba(255,255,255,.85)}
+.app{display:flex;min-height:100vh}
+.side{width:256px;flex-shrink:0;background:linear-gradient(180deg,var(--primary-dark),var(--primary));color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:100}
+.side-h{padding:20px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px}
+.side-h .ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:1.2em;background:linear-gradient(135deg,var(--accent),var(--accent2));overflow:hidden}
+.side-h .ic img{width:100%;height:100%;object-fit:cover}
+.side-h .nm{font-family:'Sora';font-size:1.02em;font-weight:800;letter-spacing:.4px}.side-h .sb{font-size:.64em;opacity:.6;text-transform:uppercase;letter-spacing:1.5px;margin-top:2px}
+.side-u{padding:15px 20px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px}
+.side-av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:700}
+.side-u .nm{font-size:.9em;font-weight:600}.side-u .rl{font-size:.74em;opacity:.65;text-transform:capitalize}
+.nav{flex:1;padding:14px 12px;overflow-y:auto}
+.nav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 14px;border-radius:var(--radius-sm);color:rgba(255,255,255,.75);font-size:.9em;font-weight:500;margin-bottom:3px;background:none;transition:var(--t)}
+.nav button i{width:18px;text-align:center}.nav button:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav button.on{background:linear-gradient(135deg,rgba(245,158,11,.22),rgba(245,158,11,.05));color:#fff;border-left:3px solid var(--accent);padding-left:11px}
+.nbadge{margin-left:auto;background:var(--accent);color:#fff;font-size:.7em;font-weight:700;min-width:20px;height:20px;padding:0 6px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center}
+.side-f{padding:13px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:.7em;opacity:.6;text-align:center}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{background:var(--surface);padding:14px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;box-shadow:var(--shadow-sm)}
+.top h4{font-family:'Sora';font-size:1.2em;font-weight:700;color:var(--g900);display:flex;gap:9px;align-items:center;flex:1}.top h4 i{color:var(--accent)}
+.tbtn{width:38px;height:38px;border-radius:10px;background:var(--g100);border:1px solid var(--line);color:var(--text);display:grid;place-items:center}
+.tbtn.lang{width:auto;padding:0 12px;gap:6px;font-size:.8em;font-weight:600;display:flex;align-items:center}
+.mtoggle{display:none}.content{flex:1;padding:24px}
+.foot{padding:16px 24px;background:var(--surface);border-top:1px solid var(--line);text-align:center;font-size:.8em;color:var(--muted)}
+.foot strong{color:var(--primary)}[data-theme="dark"] .foot strong{color:var(--accent)}.foot i{color:var(--accent);margin:0 5px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);margin-bottom:20px;overflow:hidden}
+.panel-h{padding:15px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.panel-h h5{font-family:'Sora';font-size:1em;font-weight:700;color:var(--g900);display:flex;gap:8px;align-items:center}.panel-h h5 i{color:var(--accent)}
+.panel-b{padding:20px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px;margin-bottom:20px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:17px;display:flex;gap:14px;align-items:center;transition:var(--t)}
+.stat:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.stat .ic{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:1.3em;color:#fff;flex-shrink:0}
+.bg-blue{background:linear-gradient(135deg,#3b82f6,#1d4ed8)}.bg-green{background:linear-gradient(135deg,#10b981,#059669)}.bg-red{background:linear-gradient(135deg,#ef4444,#b91c1c)}.bg-orange{background:linear-gradient(135deg,#f59e0b,#d97706)}.bg-purple{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}.bg-teal{background:linear-gradient(135deg,#14b8a6,#0d9488)}
+.stat .lbl{font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.stat .val{font-family:'Sora';font-size:1.6em;font-weight:800;color:var(--g900);margin-top:3px;line-height:1}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;margin-bottom:20px}
+.chart-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.chart-t{font-family:'Sora';font-size:.95em;font-weight:700;color:var(--g900);margin-bottom:12px;display:flex;gap:8px;align-items:center}.chart-t i{color:var(--accent)}
+.cwrap{position:relative;height:260px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:var(--radius-sm);font-size:.86em;font-weight:600;transition:var(--t)}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
+.btn-accent{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}.btn-outline{background:transparent;border:1.5px solid var(--line);color:var(--text)}.btn-outline:hover{background:var(--g50)}
+.btn-danger{background:var(--danger);color:#fff}.btn-sm{padding:6px 12px;font-size:.8em}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.calc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.calc{text-align:center;padding:15px;border-radius:var(--radius)}.calc .v{font-family:'Sora';font-size:1.5em;font-weight:800}.calc .l{font-size:.72em;color:var(--muted);margin-top:3px}
+.tw{overflow-x:auto}table.dt{width:100%;border-collapse:collapse;font-size:.86em}
+table.dt th{background:var(--g50);color:var(--g700);text-align:left;padding:11px 13px;border-bottom:2px solid var(--line);font-size:.74em;text-transform:uppercase;letter-spacing:.4px}
+table.dt td{padding:11px 13px;border-bottom:1px solid var(--line);color:var(--text)}table.dt tbody tr:hover{background:var(--g50)}
+.badge{display:inline-block;padding:3px 10px;font-size:.72em;font-weight:700;border-radius:12px;text-transform:uppercase}
+.b-success{background:rgba(16,185,129,.13);color:#047857}.b-danger{background:rgba(239,68,68,.13);color:#b91c1c}.b-warning{background:rgba(245,158,11,.16);color:#b45309}.b-info{background:rgba(59,130,246,.13);color:#1d4ed8}.b-gray{background:var(--g200);color:var(--g700)}
+.tl{position:relative;padding-left:28px}
+.tl::before{content:'';position:absolute;left:10px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.tlstep{position:relative;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+.tlstep::before{content:'';position:absolute;left:-23px;top:18px;width:13px;height:13px;border-radius:50%;background:var(--surface);border:3px solid var(--g300);box-shadow:0 0 0 3px var(--surface)}
+.tlstep.completed{border-left:4px solid var(--success)}.tlstep.completed::before{background:var(--success);border-color:var(--success)}
+.tlstep.running{border-left:4px solid var(--accent)}.tlstep.running::before{background:var(--accent);border-color:var(--accent)}
+.tlstep.pending{opacity:.6}.tlstep.pending::before{background:var(--g400);border-color:var(--g400)}
+.tl-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;font-size:.82em;color:var(--muted);margin-top:8px}
+.tl-meta .k{font-size:.68em;text-transform:uppercase;letter-spacing:.4px;color:var(--g400);font-weight:600}
+.empty{text-align:center;padding:46px 20px;color:var(--muted)}.empty i{font-size:2.8em;color:var(--g300);margin-bottom:12px;display:block}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);z-index:1000;display:grid;place-items:center;padding:20px}
+.modal{background:var(--surface);border-radius:var(--radius-lg);width:100%;max-width:520px;max-height:90vh;overflow-y:auto;animation:cardin .3s}
+.modal-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.modal-h h5{font-family:'Sora';font-weight:700;color:var(--g900)}
+.modal-b{padding:20px}.modal-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;background:var(--g50)}
+.chk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;background:var(--g50);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px}
+.chk{display:flex;align-items:center;gap:8px;font-size:.85em}.chk input{width:16px;height:16px;accent-color:var(--primary)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.filters .fg{margin:0}.filters .fi{padding:8px 11px}
+.prog{height:7px;border-radius:5px;background:var(--g200);overflow:hidden;min-width:80px}.prog>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.view{animation:vin .35s cubic-bezier(.16,1,.3,1)}@keyframes vin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:900px){.login-card{grid-template-columns:1fr;max-width:440px}.brand-side{display:none}}
+@media(max-width:768px){.side{position:fixed;left:0;top:0;transform:translateX(-100%)}.side.show{transform:none}.mtoggle{display:grid}.content{padding:15px}.stat-grid{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.calc-grid{grid-template-columns:1fr}}
+</style>
+
+<div id="root"></div>
+<div id="welcome"><div class="wcheck"><i class="fas fa-check"></i></div><div class="wtext" id="wtext">Welcome!</div><div class="wsub">Loading…</div></div>
+<div id="modal"></div>
+<div id="toasts"></div>
+
+<script>
+/* ===================== I18N ===================== */
+var L={
+ tag:{en:"Production Management System",hi:"उत्पादन प्रबंधन प्रणाली"},
+ head:{en:"Smart Manufacturing — Moulding to Dispatch",hi:"स्मार्ट मैन्युफैक्चरिंग — मोल्डिंग से डिस्पैच"},
+ desc:{en:"Track every batch step-by-step with real-time scrap, yield and per-step inputs — built for the factory floor.",hi:"हर बैच को चरण-दर-चरण ट्रैक करें — रियल-टाइम स्क्रैप, उपज और हर स्टेप की एंट्री के साथ।"},
+ f1:{en:"Batch Step Workflow (Moulding → Dispatch)",hi:"बैच स्टेप वर्कफ़्लो (मोल्डिंग → डिस्पैच)"},
+ f2:{en:"Auto step hand-off & My Tasks",hi:"ऑटो स्टेप हैंड-ऑफ़ व माय टास्क"},
+ f3:{en:"Role + Step based access",hi:"रोल + स्टेप आधारित एक्सेस"},
+ f4:{en:"Real-Time Scrap & Yield Analytics",hi:"रियल-टाइम स्क्रैप व उपज विश्लेषण"},
+ f5:{en:"Bilingual — Hindi + English",hi:"द्विभाषी — हिंदी + अंग्रेज़ी"},
+ signin:{en:"Sign In",hi:"साइन इन"},access:{en:"Access your workspace",hi:"अपना वर्कस्पेस खोलें"},
+ email:{en:"Email",hi:"ईमेल"},pass:{en:"Password",hi:"पासवर्ड"},login:{en:"Sign In Securely",hi:"सुरक्षित साइन इन"},
+ badlogin:{en:"Wrong email or password",hi:"गलत ईमेल या पासवर्ड"},logout:{en:"Sign Out",hi:"लॉग आउट"},
+ dashboard:{en:"Dashboard",hi:"डैशबोर्ड"},mytasks:{en:"My Tasks",hi:"मेरे टास्क"},entry:{en:"New Batch",hi:"नया बैच"},
+ batches:{en:"Batches",hi:"बैच"},planning:{en:"Planning vs Actual",hi:"योजना बनाम वास्तविक"},reports:{en:"Reports",hi:"रिपोर्ट"},
+ users:{en:"Users",hi:"उपयोगकर्ता"},settings:{en:"Settings",hi:"सेटिंग्स"},
+ today_prod:{en:"Output (Packed)",hi:"आउटपुट (पैक्ड)"},avg_scrap:{en:"Avg Scrap %",hi:"औसत स्क्रैप %"},avg_yield:{en:"Avg Yield %",hi:"औसत उपज %"},
+ total_batch:{en:"Total Batches",hi:"कुल बैच"},pending:{en:"In Progress",hi:"प्रगति में"},dispatch:{en:"Completed",hi:"पूर्ण"},pcs:{en:"pcs",hi:"पीस"},
+ trend:{en:"Output Trend",hi:"आउटपुट ट्रेंड"},quality:{en:"Quality Distribution",hi:"गुणवत्ता वितरण"},
+ prod_by_step:{en:"Good by Step",hi:"चरण अनुसार अच्छा"},scrap_by_step:{en:"Scrap by Step",hi:"चरण अनुसार स्क्रैप"},
+ recent:{en:"Recent Batches",hi:"हाल के बैच"},
+ batch:{en:"Batch No.",hi:"बैच नंबर"},product:{en:"Product",hi:"प्रोडक्ट"},step:{en:"Step",hi:"चरण"},shift:{en:"Shift",hi:"शिफ्ट"},machine:{en:"Machine",hi:"मशीन"},
+ operator:{en:"Operator",hi:"ऑपरेटर"},date:{en:"Date",hi:"दिनांक"},progress:{en:"Progress",hi:"प्रगति"},
+ in_q:{en:"Input Qty",hi:"इनपुट मात्रा"},good_q:{en:"Good / Out Qty",hi:"अच्छी / आउट मात्रा"},scrap_q:{en:"Scrap Qty",hi:"स्क्रैप मात्रा"},rework_q:{en:"Rework Qty",hi:"रीवर्क मात्रा"},
+ added:{en:"Added / Work done at this step",hi:"इस स्टेप पर जोड़ा / किया गया"},remarks:{en:"Remarks",hi:"टिप्पणी"},
+ start_batch:{en:"Start Batch",hi:"बैच शुरू करें"},started:{en:"Batch started",hi:"बैच शुरू हुआ"},
+ update_step:{en:"Update This Step",hi:"यह स्टेप अपडेट करें"},complete_next:{en:"Complete & Pass to Next",hi:"पूर्ण करें व अगले को भेजें"},
+ complete_final:{en:"Complete (Final Pack)",hi:"पूर्ण करें (फाइनल पैक)"},step_done:{en:"Step completed",hi:"स्टेप पूर्ण"},
+ locked:{en:"Locked — previous step pending",hi:"लॉक — पिछला स्टेप बाकी"},not_yours:{en:"This step is assigned to another role/user.",hi:"यह स्टेप किसी और को सौंपा गया है।"},
+ open:{en:"Open",hi:"खोलें"},timeline:{en:"Batch Timeline",hi:"बैच टाइमलाइन"},back:{en:"Back",hi:"वापस"},
+ scrap_pct:{en:"Scrap %",hi:"स्क्रैप %"},yield_pct:{en:"Yield %",hi:"उपज %"},rework_pct:{en:"Rework %",hi:"रीवर्क %"},live_calc:{en:"Live Calculation",hi:"लाइव गणना"},
+ completed:{en:"Completed",hi:"पूर्ण"},running:{en:"Running",hi:"चालू"},pending_s:{en:"Pending",hi:"लंबित"},
+ no_tasks:{en:"All caught up — no pending steps for you.",hi:"कोई लंबित स्टेप नहीं।"},no_batches:{en:"No batches yet — start one from New Batch.",hi:"अभी कोई बैच नहीं — नया बैच शुरू करें।"},
+ planned:{en:"Planned",hi:"नियोजित"},actual:{en:"Actual",hi:"वास्तविक"},gap:{en:"Gap",hi:"अंतर"},achievement:{en:"Achievement",hi:"उपलब्धि"},
+ filters:{en:"Filters",hi:"फ़िल्टर"},from:{en:"From",hi:"से"},to:{en:"To",hi:"तक"},all_users:{en:"All Users",hi:"सभी यूज़र"},
+ week:{en:"This Week",hi:"इस सप्ताह"},month:{en:"This Month",hi:"इस माह"},all_time:{en:"All",hi:"सभी"},apply:{en:"Apply",hi:"लागू करें"},
+ data_backup:{en:"Data & Backup",hi:"डेटा व बैकअप"},dl_csv:{en:"Download CSV",hi:"CSV डाउनलोड"},dl_json:{en:"Full JSON",hi:"पूरा JSON"},
+ gsheet:{en:"Backup Update On Google Sheets",hi:"Google Sheets पर बैकअप"},gsheet_done:{en:"Sent to Google Sheets",hi:"Google Sheets पर भेजा"},gsheet_off:{en:"Set GSHEET_URL in CONFIG first",hi:"पहले CONFIG में GSHEET_URL डालें"},
+ company:{en:"Company Profile",hi:"कंपनी प्रोफ़ाइल"},save:{en:"Save",hi:"सेव करें"},saved:{en:"Saved",hi:"सेव हुआ"},
+ prefs:{en:"Preferences",hi:"प्राथमिकताएँ"},language:{en:"Language",hi:"भाषा"},theme:{en:"Theme",hi:"थीम"},backend:{en:"Backend",hi:"बैकएंड"},live:{en:"LIVE · Supabase",hi:"LIVE · Supabase"},demo:{en:"DEMO · in-memory",hi:"DEMO · अस्थायी"},
+ add_user:{en:"Add User",hi:"यूज़र जोड़ें"},edit:{en:"Edit",hi:"एडिट"},name:{en:"Name",hi:"नाम"},role:{en:"Role",hi:"भूमिका"},phone:{en:"Phone",hi:"फ़ोन"},status:{en:"Status",hi:"स्थिति"},active:{en:"Active",hi:"सक्रिय"},
+ allowed_steps:{en:"Steps this user can update",hi:"यह यूज़र कौन से स्टेप अपडेट करे"},print:{en:"Print / PDF",hi:"प्रिंट / PDF"},
+ name_addr:{en:"Address",hi:"पता"},gst:{en:"GST No.",hi:"GST नंबर"},logo:{en:"Logo URL",hi:"लोगो URL"},tagline:{en:"Tagline",hi:"टैगलाइन"},
+ color:{en:"Color Name",hi:"रंग का नाम"},cavity:{en:"Cavity",hi:"कैविटी"},final_q:{en:"Final Qty",hi:"फाइनल मात्रा"},
+ custom:{en:"+ Custom (type new)",hi:"+ कस्टम (नया लिखें)"},custom_color:{en:"Enter new color name",hi:"नया रंग लिखें"},
+ take_photo:{en:"Operator Photo (camera)",hi:"ऑपरेटर फोटो (कैमरा)"},photo_added:{en:"Photo attached",hi:"फोटो जुड़ गई"},
+ products:{en:"Products",hi:"प्रोडक्ट"},colors_t:{en:"Colors",hi:"रंग"},add:{en:"Add",hi:"जोड़ें"},del:{en:"Delete",hi:"हटाएँ"},
+ select_product:{en:"-- Select Product --",hi:"-- प्रोडक्ट चुनें --"},no_scrap_s1:{en:"Step 1: no scrap — Good = In automatically.",hi:"स्टेप 1: कोई स्क्रैप नहीं — Good = In अपने आप।"},
+ no_rework_s2:{en:"Step 2: rework does not happen here.",hi:"स्टेप 2: यहाँ रीवर्क नहीं होता।"},
+ sale:{en:"Sale",hi:"बिक्री"},no_sale:{en:"No Sale",hi:"बिक्री नहीं"},full_sale:{en:"Full Sale",hi:"पूर्ण बिक्री"},partial_sale:{en:"Partial Sale",hi:"आंशिक बिक्री"},
+ sale_qty:{en:"Sale Qty",hi:"बिक्री मात्रा"},sold:{en:"Sold",hi:"बिका"},sold_total:{en:"Total Sold",hi:"कुल बिक्री"},
+ sale_note:{en:"Full = all sold, lot ends. Partial = enter qty; remaining goes to next step.",hi:"Full = सब बिका, लॉट खत्म। Partial = मात्रा डालें; बची मात्रा अगले स्टेप पर।"},
+ stock:{en:"Stock",hi:"स्टॉक"},scrap:{en:"Scrap Process",hi:"स्क्रैप प्रक्रिया"},
+ scrap_pending:{en:"Scrap Pending",hi:"स्क्रैप लंबित"},scrap_done:{en:"Scrap Processed",hi:"स्क्रैप पूर्ण"},
+ from_step:{en:"From Step",hi:"किस स्टेप से"},qty:{en:"Qty",hi:"मात्रा"},in_process:{en:"In Process",hi:"प्रक्रिया में"},
+ scrap_step:{en:"Scrap Step",hi:"स्क्रैप स्टेप"},complete:{en:"Complete Step",hi:"स्टेप पूर्ण करें"},
+ sales_rep:{en:"Sales Report",hi:"बिक्री रिपोर्ट"},scrap_rep:{en:"Scrap Report",hi:"स्क्रैप रिपोर्ट"},prod_rep:{en:"Production Report",hi:"उत्पादन रिपोर्ट"},
+ manual_q:{en:"Manual Filling Qty (not filled by machine)",hi:"मैनुअल फिलिंग मात्रा (मशीन से नहीं भरी)"},
+ s5_hint:{en:"Machine-filled qty waits. Manual Filling Qty goes to Step 6. Both merge at Flame Testing.",hi:"मशीन से भरी मात्रा रुकेगी। मैनुअल मात्रा स्टेप 6 जाएगी। दोनों फ्लेम टेस्टिंग पर जुड़ेंगी।"},
+ s6_hint:{en:"In = manual qty from Gas Filling. Fail → Scrap. Good merges with machine qty at Flame Testing.",hi:"In = गैस फिलिंग की मैनुअल मात्रा। फेल → स्क्रैप। Good फ्लेम टेस्टिंग पर मशीन मात्रा से जुड़ेगा।"},
+ rework_added:{en:"Rework Recovered",hi:"रीवर्क से वापस"},total_stock:{en:"Total Stock",hi:"कुल स्टॉक"},
+ by_pc:{en:"Stock by Product + Color",hi:"प्रोडक्ट + रंग अनुसार स्टॉक"},by_batch:{en:"Stock by Batch",hi:"बैच अनुसार स्टॉक"},
+ batches_n:{en:"Batches",hi:"बैच"},
+ /* v3 keys */
+ entry_log:{en:"Entry Log",hi:"एंट्री लॉग"},actions:{en:"Actions",hi:"कार्रवाई"},
+ edit_entry:{en:"Edit Entry",hi:"एंट्री एडिट करें"},del_entry:{en:"Delete Entry",hi:"एंट्री हटाएँ"},
+ confirm_del_entry:{en:"Delete this entry? Step quantities will be reversed automatically.",hi:"यह एंट्री हटाएँ? स्टेप मात्रा अपने आप वापस हो जाएगी।"},
+ confirm_del_batch:{en:"Delete this ENTIRE batch with all steps, entries, sales & scrap? Cannot be undone!",hi:"पूरा बैच — सभी एंट्री, बिक्री व स्क्रैप सहित — हटाएँ? वापस नहीं होगा!"},
+ del_batch:{en:"Delete Batch",hi:"बैच हटाएँ"},batch_deleted:{en:"Batch deleted",hi:"बैच हटाया गया"},
+ perm_edit:{en:"Can Edit / Delete own entries",hi:"अपनी एंट्री एडिट / डिलीट कर सकता है"},
+ downstream_err:{en:"Next step already processed this qty — delete that step's entry first.",hi:"अगले स्टेप पर यह मात्रा प्रोसेस हो चुकी है — पहले वहाँ की एंट्री हटाएँ।"},
+ auto_time:{en:"Date & Time (auto)",hi:"दिनांक व समय (ऑटो)"},
+ batch_locked:{en:"Batch No. is auto-generated — only Admin can change it.",hi:"बैच नंबर ऑटो बनता है — केवल एडमिन बदल सकता है।"},
+ entry_updated:{en:"Entry updated — quantities recalculated",hi:"एंट्री अपडेट — मात्रा दोबारा गणना हुई"},
+ entry_deleted:{en:"Entry deleted — quantities reversed",hi:"एंट्री हटी — मात्रा वापस हुई"},
+};
+var lang="en",theme="light",user=null,page="dashboard",sb=null,charts={},curBatch=null;
+var COMPANY={name:"VINAYAK AGNIPEAK",tagline:"Production Management System",address:"",phone:"",email:"",gst:"",logo:""};
+var FILTER={from:dstr(addDays(new Date(),-30)),to:dstr(new Date()),op:""};
+var t=function(k){return L[k]?L[k][lang]:k};
+
+/* ===================== STEPS / ROLES ===================== */
+var STEPS=[["Plastic Cover Moulding","प्लास्टिक कवर मोल्डिंग"],["Segregation","सेग्रीगेशन"],["Welding","वेल्डिंग"],["Pre Assembly","प्री असेंबली"],["Gas Filling (Machine)","गैस फिलिंग (मशीन)"],["Manual Gas Filling","मैनुअल गैस फिलिंग"],["Flame Testing","फ्लेम टेस्टिंग"],["Final Assembly","फाइनल असेंबली"],["Final QC (Machine)","फाइनल QC (मशीन)"],["Packing & Dispatch","पैकिंग व डिस्पैच"]];
+var NSTEPS=STEPS.length;
+var SCRAP_STEPS=[["Scrap Collection","स्क्रैप कलेक्शन"],["Segregation / Grinding","सेग्रीगेशन / ग्राइंडिंग"],["Recycle / Dispose","रीसायकल / डिस्पोज़"]];
+var ROLES=["super","admin","manager","supervisor","operator"];
+function isAdmin(){return ["super","admin","manager"].indexOf(user.role)!==-1}
+function parseSteps(s){if(Array.isArray(s))return s.map(Number);if(!s)return[];return String(s).split(",").map(function(x){return parseInt(x,10)}).filter(function(x){return!isNaN(x)})}
+function canDo(stepNo){if(isAdmin())return true;return parseSteps(user.allowed_steps).indexOf(stepNo)!==-1}
+/* v3: super/admin can always edit-delete; other users only if admin granted can_edit_entries — and only their OWN entries */
+function isSuperAdmin(){return !!user&&["super","admin"].indexOf(user.role)!==-1}
+function canModifyEntry(e){
+ if(!user)return false;
+ if(isSuperAdmin())return true;
+ if(!user.can_edit_entries)return false;
+ if(e.created_by)return e.created_by===user.name;
+ return e.operator===user.name; /* fallback for old rows without created_by */
+}
+
+/* ===================== DATA ===================== */
+function dstr(d){return d.toISOString().slice(0,10)}
+function addDays(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x}
+function nowISO(){return new Date().toISOString()}
+var DEF_PRODUCTS=[["063-A",16],["063-B",16],["063-C",16],["063-D",16],["GZB Bottom 663",20],["Bottom GZB",64]];
+var DEF_COLORS=["Red","Blue","Green","Yellow","Orange","Black","White","Pink","Purple","Transparent"];
+var mem={
+ app_users:[{id:1,name:"Sunil Tiwari",email:"connect@systemmaster.in",phone:"9027965956",password:"Admin@123",role:"super",allowed_steps:"1,2,3,4,5,6,7,8,9,10",can_edit_entries:true,active:true}],
+ batches:[],batch_steps:[],company_profile:[{id:1,name:"VINAYAK AGNIPEAK",tagline:"Production Management System",address:"",phone:"",email:"",gst:"",logo:""}],
+ products:DEF_PRODUCTS.map(function(p,i){return {id:i+1,name:p[0],cavity:p[1]}}),
+ colors:DEF_COLORS.map(function(c,i){return {id:i+1,name:c}}),
+ sales:[],scrap_lots:[],step_entries:[]
+};
+(function seedDemo(){
+ var b={id:1,batch_no:"BATCH-0001",product:"063-A",color:"Red",cavity:16,input_qty:100,final_qty:1600,shift:"Shift A",machine:"M-01",created_by:"Ramesh K.",current_step:1,status:"in_progress",created_at:nowISO()};
+ mem.batches.push(b);
+ for(var i=0;i<NSTEPS;i++){var st=i+1;
+  mem.batch_steps.push({id:mem.batch_steps.length+1,batch_id:1,step_no:st,step_name:STEPS[i][0],in_qty:st===1?1600:0,done_qty:0,good_qty:0,scrap_qty:0,rework_qty:0,added_item:"",operator:"",status:st===1?"running":"pending",remark:"",photo:"",started_at:st===1?nowISO():null,completed_at:null});}
+})();
+async function getProducts(){var r=await dbAll("products","id");if(!r||!r.length)return DEF_PRODUCTS.map(function(p,i){return {id:i+1,name:p[0],cavity:p[1]}});return r.slice().sort(function(a,b){return a.id-b.id})}
+async function getColors(){var r=await dbAll("colors","id");if(!r||!r.length)return DEF_COLORS.map(function(c,i){return {id:i+1,name:c}});return r.slice().sort(function(a,b){return a.id-b.id})}
+function initSB(){try{if(SUPABASE_URL&&SUPABASE_KEY&&window.supabase)sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}catch(e){sb=null}}
+async function dbAll(tbl,order){if(sb){var r=await sb.from(tbl).select("*").order(order||"id",{ascending:false});return r.data||[]}return [...(mem[tbl]||[])].reverse()}
+async function dbInsert(tbl,row){if(sb){var r=await sb.from(tbl).insert(row).select();if(r.error)throw new Error(tbl+": "+r.error.message);return r.data&&r.data[0]}row.id=(mem[tbl].length?mem[tbl][mem[tbl].length-1].id:0)+1;mem[tbl].push(row);return row}
+async function dbInsertMany(tbl,rows){if(sb){var r=await sb.from(tbl).insert(rows).select();if(r.error)throw new Error(tbl+": "+r.error.message);return r.data||[]}rows.forEach(function(row){row.id=(mem[tbl].length?mem[tbl][mem[tbl].length-1].id:0)+1;mem[tbl].push(row)});return rows}
+async function dbUpdate(tbl,id,patch){if(sb){var r=await sb.from(tbl).update(patch).eq("id",id);if(r.error)throw new Error(tbl+": "+r.error.message);return}var x=(mem[tbl]||[]).find(function(y){return y.id===id});if(x)Object.assign(x,patch)}
+async function dbDelete(tbl,id){if(sb){await sb.from(tbl).delete().eq("id",id);return}mem[tbl]=(mem[tbl]||[]).filter(function(x){return x.id!==id})}
+async function dbDeleteBy(tbl,col,val){if(sb){var r=await sb.from(tbl).delete().eq(col,val);if(r.error)throw new Error(tbl+": "+r.error.message);return}mem[tbl]=(mem[tbl]||[]).filter(function(x){return x[col]!==val})}
+async function dbLogin(email,pw){if(sb){var r=await sb.from("app_users").select("*").eq("email",email).eq("password",pw).eq("active",true).limit(1);return r.data&&r.data[0]}return mem.app_users.find(function(u){return u.email===email&&u.password===pw&&u.active})}
+async function stepsOf(bid){if(sb){var r=await sb.from("batch_steps").select("*").eq("batch_id",bid).order("step_no",{ascending:true});return r.data||[]}return mem.batch_steps.filter(function(s){return s.batch_id===bid}).sort(function(a,b){return a.step_no-b.step_no})}
+async function loadCompany(){try{if(sb){var r=await sb.from("company_profile").select("*").eq("id",1).limit(1);if(r.data&&r.data[0])COMPANY=Object.assign({},COMPANY,r.data[0])}else if(mem.company_profile[0])COMPANY=Object.assign({},COMPANY,mem.company_profile[0])}catch(e){}}
+
+async function createBatch(d){
+ var b={batch_no:d.batch_no,product:d.product,color:d.color,cavity:d.cavity,input_qty:d.input_qty,final_qty:d.final_qty,shift:d.shift,machine:d.machine,created_by:user.name,current_step:1,status:"in_progress",created_at:nowISO()};
+ var bb=await dbInsert("batches",b);var bid=bb.id;
+ var rows=STEPS.map(function(s,i){return {batch_id:bid,step_no:i+1,step_name:s[0],in_qty:i===0?d.final_qty:0,done_qty:0,good_qty:0,scrap_qty:0,rework_qty:0,added_item:"",operator:i===0?d.operator:"",status:i===0?"running":"pending",remark:"",photo:"",started_at:i===0?nowISO():null,completed_at:null}});
+ await dbInsertMany("batch_steps",rows);return bid;
+}
+/* ---- PARTIAL STEP ENTRY ENGINE ----
+   Har step par jitni qty ka kaam hua utni hi update hoti hai (Process Qty).
+   remaining = in_qty - done_qty wahin pending rehta hai.
+   Step 5: manual qty -> Step 6 In; machine good -> Step 7 In. Step 6 good -> Step 7 In (merge). */
+async function addStepEntry(bid,stepNo,v){
+ var steps=await stepsOf(bid);var cur=steps.find(function(s){return s.step_no===stepNo});if(!cur)return;
+ var bats=await dbAll("batches");var bat=bats.find(function(b){return b.id===bid})||{};
+ var qty=+v.qty||0;var rem=(+cur.in_qty||0)-(+cur.done_qty||0);
+ if(qty<=0||qty>rem)throw new Error("Qty 1.."+rem);
+ var scrap=Math.max(0,+v.scrap||0),rework=Math.max(0,+v.rework||0);
+ var good=qty-scrap-rework;if(good<0)throw new Error("Scrap+Rework > Qty");
+ var sold=0;if(v.sale==="full")sold=good;else if(v.sale==="partial")sold=Math.min(good,+v.sale_qty||0);
+ var fwd=good-sold;
+ // 1) entry log
+ var ent=await dbInsert("step_entries",{batch_id:bid,batch_no:bat.batch_no||"",product:bat.product||"",color:bat.color||"",step_no:stepNo,qty:qty,good_qty:good,scrap_qty:scrap,rework_qty:rework,sale_type:sold>0?v.sale:"",sale_qty:sold,added_item:v.added||"",remark:v.remark||"",operator:v.operator||"",photo:v.photo||"",created_by:v.created_by||(user?user.name:""),created_at:v.created_at||nowISO()});
+ var entId=(ent&&ent.id)||null;
+ // 2) scrap lot
+ if(scrap>0){await dbInsert("scrap_lots",{batch_id:bid,batch_no:bat.batch_no||"",product:bat.product||"",color:bat.color||"",from_step:stepNo,qty:scrap,scrap_step:1,status:"in_progress",remark:"",operator:v.operator||"",step_entry_id:entId,created_at:nowISO(),completed_at:null})}
+ // 3) sale
+ if(sold>0){await dbInsert("sales",{batch_id:bid,batch_no:bat.batch_no||"",product:bat.product||"",color:bat.color||"",step_no:stepNo,qty:sold,sale_type:v.sale,operator:v.operator||"",step_entry_id:entId,created_at:nowISO()})}
+ // 4) current step cumulative totals
+ await dbUpdate("batch_steps",cur.id,{done_qty:(+cur.done_qty||0)+qty,good_qty:(+cur.good_qty||0)+good,scrap_qty:(+cur.scrap_qty||0)+scrap,rework_qty:(+cur.rework_qty||0)+rework,added_item:v.added||cur.added_item,remark:v.remark||cur.remark,operator:v.operator||cur.operator,photo:v.photo||cur.photo||"",started_at:cur.started_at||nowISO()});
+ // 5) forward
+ async function addIn(stepN,q){if(q<=0)return;var sx=steps.find(function(s){return s.step_no===stepN});if(!sx)return;await dbUpdate("batch_steps",sx.id,{in_qty:(+sx.in_qty||0)+q,started_at:sx.started_at||nowISO()})}
+ if(stepNo===5){await addIn(6,rework);await addIn(7,fwd)}
+ else if(stepNo===6){await addIn(7,fwd)}
+ else if(stepNo<NSTEPS){await addIn(stepNo+1,fwd)}
+ // 6) recompute statuses + batch
+ await recomputeBatch(bid);
+}
+async function recomputeBatch(bid){
+ var steps=await stepsOf(bid);var allPrevDone=true;var firstRem=0;var s10=steps.find(function(s){return s.step_no===NSTEPS})||{};
+ for(var i=0;i<steps.length;i++){var s=steps[i];var rem=(+s.in_qty||0)-(+s.done_qty||0);
+  var st;
+  if(rem>0)st="running";
+  else if(allPrevDone)st="completed";
+  else st=(+s.in_qty||0)>0?"running":"pending";
+  if(rem>0&&!firstRem)firstRem=s.step_no;
+  if(st!==s.status){var patch={status:st};if(st==="completed"&&!s.completed_at)patch.completed_at=nowISO();await dbUpdate("batch_steps",s.id,patch)}
+  if(rem>0)allPrevDone=false;
+ }
+ var anyRem=steps.some(function(s){return ((+s.in_qty||0)-(+s.done_qty||0))>0});
+ var status,curStep;
+ if(anyRem){status="in_progress";curStep=firstRem}
+ else{status=(+s10.good_qty||0)>0?"completed":"sold";curStep=NSTEPS}
+ await dbUpdate("batches",bid,{status:status,current_step:curStep});
+}
+// backward-compat wrapper (old name)
+async function completeStep(bid,stepNo,v){if(v.qty===undefined)v.qty=undefined;return addStepEntry(bid,stepNo,v)}
+
+/* ===================== v3: ENTRY EDIT / DELETE ENGINE ===================== */
+/* Har entry ne current step ke totals badhaye the + aage ke step me in_qty forward ki thi.
+   Delete/Edit par woh sab safely REVERSE hota hai — downstream check ke saath. */
+function entryFwd(e){
+ /* Returns [[stepNo, qty]] — jo qty is entry ne aage forward ki thi */
+ var good=+e.good_qty||0,sold=+e.sale_qty||0,rw=+e.rework_qty||0,fwd=Math.max(0,good-sold),out=[];
+ if(e.step_no===5){if(rw>0)out.push([6,rw]);if(fwd>0)out.push([7,fwd])}
+ else if(e.step_no===6){if(fwd>0)out.push([7,fwd])}
+ else if(e.step_no<NSTEPS){if(fwd>0)out.push([e.step_no+1,fwd])}
+ return out;
+}
+async function reverseStepEntry(e){
+ var steps=await stepsOf(e.batch_id);
+ var cur=steps.find(function(s){return s.step_no===e.step_no});
+ if(!cur)throw new Error("Step not found");
+ var fwd=entryFwd(e);
+ /* SAFETY: agar aage ke step ne forwarded qty already process kar li hai to block */
+ for(var i=0;i<fwd.length;i++){
+  var sx=steps.find(function(s){return s.step_no===fwd[i][0]});
+  if(sx&&((+sx.in_qty||0)-fwd[i][1])<(+sx.done_qty||0))throw new Error(t("downstream_err"));
+ }
+ /* reverse current step cumulative totals */
+ await dbUpdate("batch_steps",cur.id,{
+  done_qty:Math.max(0,(+cur.done_qty||0)-(+e.qty||0)),
+  good_qty:Math.max(0,(+cur.good_qty||0)-(+e.good_qty||0)),
+  scrap_qty:Math.max(0,(+cur.scrap_qty||0)-(+e.scrap_qty||0)),
+  rework_qty:Math.max(0,(+cur.rework_qty||0)-(+e.rework_qty||0))
+ });
+ /* reverse forwarded in_qty on downstream steps */
+ for(var j=0;j<fwd.length;j++){
+  var sy=steps.find(function(s){return s.step_no===fwd[j][0]});
+  if(sy)await dbUpdate("batch_steps",sy.id,{in_qty:Math.max(0,(+sy.in_qty||0)-fwd[j][1])});
+ }
+ /* delete linked scrap lot(s) & sale(s) of this entry */
+ if(e.id!=null){
+  try{await dbDeleteBy("scrap_lots","step_entry_id",e.id)}catch(x1){}
+  try{await dbDeleteBy("sales","step_entry_id",e.id)}catch(x2){}
+ }
+}
+async function deleteStepEntry(id){
+ var all=await dbAll("step_entries");var e=all.find(function(x){return x.id===id});if(!e)return;
+ if(!canModifyEntry(e)){toast(t("not_yours"),"warning");return}
+ if(!confirm(t("confirm_del_entry")))return;
+ try{
+  await reverseStepEntry(e);
+  await dbDelete("step_entries",id);
+  await recomputeBatch(e.batch_id);
+  toast(t("entry_deleted"),"success");closeModal();render();
+ }catch(err){toast("Error: "+err.message,"error")}
+}
+var ENTCACHE=[];
+function entryEditModal(id){
+ var e=ENTCACHE.find(function(x){return x.id===id});if(!e)return;
+ if(!canModifyEntry(e)){toast(t("not_yours"),"warning");return}
+ $("modal").innerHTML='<div class="mo"><div class="modal"><div class="modal-h"><h5><i class="fas fa-pen"></i> '+t("edit_entry")+' — '+esc(e.batch_no)+' · Step '+e.step_no+'</h5><button class="tbtn" onclick="closeModal()"><i class="fas fa-times"></i></button></div>'+
+  '<div class="modal-b"><div class="form-row">'+
+   '<div><label class="fl" style="color:var(--accent)">Process Qty *</label><input id="ee_qty" type="number" class="fi" value="'+(+e.qty||0)+'" oninput="eeCalc()" style="font-weight:800"></div>'+
+   '<div><label class="fl">'+t("scrap_q")+'</label><input id="ee_scrap" type="number" class="fi" value="'+(+e.scrap_qty||0)+'" oninput="eeCalc()"></div>'+
+   '<div><label class="fl">'+(e.step_no===5?t("manual_q"):t("rework_q"))+'</label><input id="ee_rework" type="number" class="fi" value="'+(+e.rework_qty||0)+'" oninput="eeCalc()"></div>'+
+   '<div><label class="fl">'+t("good_q")+' <span style="color:var(--muted);font-weight:400">(auto)</span></label><input id="ee_good" class="fi" readonly value="'+(+e.good_qty||0)+'" style="font-weight:800;color:var(--success)"></div>'+
+   '<div><label class="fl">'+t("sale")+'</label><select id="ee_sale" class="fi"><option value="none"'+(!e.sale_type?" selected":"")+'>'+t("no_sale")+'</option><option value="full"'+(e.sale_type==="full"?" selected":"")+'>'+t("full_sale")+'</option><option value="partial"'+(e.sale_type==="partial"?" selected":"")+'>'+t("partial_sale")+'</option></select></div>'+
+   '<div><label class="fl">'+t("sale_qty")+' <span style="color:var(--muted);font-weight:400">(partial)</span></label><input id="ee_saleq" type="number" class="fi" value="'+(+e.sale_qty||0)+'"></div>'+
+   '<div><label class="fl">'+t("operator")+'</label><input id="ee_op" class="fi" value="'+esc(e.operator||"")+'"></div>'+
+   '<div><label class="fl">'+t("added")+'</label><input id="ee_added" class="fi" value="'+esc(e.added_item||"")+'"></div>'+
+   '<div style="grid-column:1/-1"><label class="fl">'+t("remarks")+'</label><input id="ee_rem" class="fi" value="'+esc(e.remark||"")+'"></div>'+
+   '<div style="grid-column:1/-1;font-size:.8em;color:var(--muted)"><i class="fas fa-circle-info" style="color:var(--accent)"></i> '+(lang==="hi"?"सेव करते ही पुरानी मात्रा वापस होगी और नई मात्रा से पूरा हिसाब दोबारा बनेगा।":"On save, old quantities are reversed and everything is recalculated with the new values.")+'</div>'+
+  '</div></div>'+
+  '<div class="modal-f"><button class="btn btn-outline" onclick="closeModal()">Cancel</button>'+
+   '<button class="btn btn-outline" style="color:var(--danger)" onclick="deleteStepEntry('+e.id+')"><i class="fas fa-trash"></i> '+t("del_entry")+'</button>'+
+   '<button class="btn btn-accent" onclick="saveEntryEdit('+e.id+')"><i class="fas fa-check"></i> '+t("save")+'</button></div>'+
+ '</div></div>';
+}
+function eeCalc(){var q=+$("ee_qty").value||0,sc=+$("ee_scrap").value||0,rw=+$("ee_rework").value||0;$("ee_good").value=Math.max(0,q-sc-rw)}
+async function saveEntryEdit(id){
+ var all=await dbAll("step_entries");var e=all.find(function(x){return x.id===id});if(!e)return;
+ if(!canModifyEntry(e)){toast(t("not_yours"),"warning");return}
+ var qty=+$("ee_qty").value||0,scrap=Math.max(0,+$("ee_scrap").value||0),rework=Math.max(0,+$("ee_rework").value||0);
+ var sale=$("ee_sale").value,saleq=Math.max(0,+$("ee_saleq").value||0);
+ var good=qty-scrap-rework;
+ var steps=await stepsOf(e.batch_id);var cur=steps.find(function(s){return s.step_no===e.step_no});
+ if(!cur){toast("Step not found","error");return}
+ /* PRE-VALIDATE everything BEFORE reversing (no half-done state) */
+ var maxQty=(+cur.in_qty||0)-(+cur.done_qty||0)+(+e.qty||0);
+ if(qty<=0||qty>maxQty){toast("Process Qty 1.."+maxQty,"warning");return}
+ if(good<0){toast("Scrap+Rework > Qty","warning");return}
+ if(sale==="partial"&&(saleq<=0||saleq>good)){toast(t("sale_qty")+" 1.."+good,"warning");return}
+ try{
+  await reverseStepEntry(e);            /* old effect reversed (downstream-checked) */
+  await dbDelete("step_entries",e.id);  /* old log removed */
+  await addStepEntry(e.batch_id,e.step_no,{qty:qty,scrap:scrap,rework:rework,added:$("ee_added").value,remark:$("ee_rem").value,operator:$("ee_op").value,photo:e.photo||"",sale:sale,sale_qty:saleq,created_at:e.created_at,created_by:e.created_by||e.operator||""});
+  toast(t("entry_updated"),"success");closeModal();render();
+ }catch(err){toast("Error: "+err.message,"error");render()}
+}
+function entryActionsHTML(e){
+ if(!canModifyEntry(e))return '—';
+ return '<div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" title="'+t("edit_entry")+'" onclick="entryEditModal('+e.id+')"><i class="fas fa-pen"></i></button><button class="btn btn-outline btn-sm" title="'+t("del_entry")+'" onclick="deleteStepEntry('+e.id+')"><i class="fas fa-trash" style="color:var(--danger)"></i></button></div>';
+}
+function entryLogPanel(list){
+ return '<div class="panel"><div class="panel-h"><h5><i class="fas fa-clock-rotate-left"></i> '+t("entry_log")+' <span class="badge b-info">'+list.length+'</span></h5></div><div class="panel-b">'+
+  (list.length?'<div class="tw"><table class="dt"><thead><tr><th>'+t("date")+'</th><th>'+t("step")+'</th><th>'+t("operator")+'</th><th>Qty</th><th>'+t("good_q")+'</th><th>'+t("scrap_q")+'</th><th>'+t("rework_q")+'</th><th>'+t("sold")+'</th><th>'+t("actions")+'</th></tr></thead><tbody>'+
+   list.map(function(s){return '<tr><td>'+(s.created_at||"").slice(0,16).replace("T"," ")+'</td><td>Step '+s.step_no+'</td><td>'+esc(s.operator||"")+'</td><td><b>'+(+s.qty||0)+'</b></td><td style="color:var(--success);font-weight:700">'+(+s.good_qty||0)+'</td><td style="color:var(--danger)">'+(+s.scrap_qty||0)+'</td><td>'+(+s.rework_qty||0)+'</td><td style="color:var(--teal)">'+(+s.sale_qty||0)+'</td><td>'+entryActionsHTML(s)+'</td></tr>'}).join("")+
+  '</tbody></table></div>':'<div class="empty"><i class="fas fa-inbox"></i><div>—</div></div>')+'</div></div>';
+}
+/* ===================== v3: BATCH DELETE (admin — test data cleanup) ===================== */
+async function deleteBatch(id){
+ if(!isSuperAdmin()){toast(t("not_yours"),"warning");return}
+ if(!confirm(t("confirm_del_batch")))return;
+ try{
+  await dbDeleteBy("step_entries","batch_id",id);
+  await dbDeleteBy("sales","batch_id",id);
+  await dbDeleteBy("scrap_lots","batch_id",id);
+  await dbDeleteBy("batch_steps","batch_id",id);
+  await dbDelete("batches",id);
+  if(curBatch===id){curBatch=null;page="batches"}
+  toast(t("batch_deleted"),"success");render();
+ }catch(e){toast("Error: "+e.message,"error")}
+}
+
+/* ===================== HELPERS ===================== */
+var $=function(id){return document.getElementById(id)};
+function esc(s){return s==null?"":String(s).replace(/[&<>"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]})}
+function toast(msg,type){type=type||"info";var ic={success:"check-circle",error:"times-circle",warning:"exclamation-triangle",info:"info-circle"};var e=document.createElement("div");e.className="toast "+type;e.innerHTML='<i class="fas fa-'+ic[type]+'" style="font-size:1.2em"></i><div>'+esc(msg)+'</div>';$("toasts").appendChild(e);setTimeout(function(){e.style.opacity="0";e.style.transform="translateX(120%)";e.style.transition="all .3s";setTimeout(function(){e.remove()},300)},3400)}
+function logoHTML(){return COMPANY.logo?'<img src="'+esc(COMPANY.logo)+'">':'<i class="fas fa-fire"></i>'}
+
+/* ===================== ROOT ===================== */
+function render(){document.documentElement.setAttribute("data-theme",theme);$("root").innerHTML=user?shell():loginView();if(user){bindNav();renderPage()}else bindLogin()}
+
+function loginView(){
+ return '<div class="login-wrap"><div style="width:100%;max-width:960px"><div class="login-card">'+
+  '<div class="brand-side"><div class="bs-in">'+
+   '<div class="b-logo"><div class="ic">'+logoHTML()+'</div><div><div class="b-name">'+esc(COMPANY.name)+'</div><div class="b-tag">PMS · '+t("tag")+'</div></div></div>'+
+   '<div class="b-head">'+t("head")+'</div><p class="b-desc">'+t("desc")+'</p>'+
+   '<ul class="feat"><li><i class="fas fa-check"></i> '+t("f1")+'</li><li><i class="fas fa-check"></i> '+t("f2")+'</li><li><i class="fas fa-check"></i> '+t("f3")+'</li><li><i class="fas fa-check"></i> '+t("f4")+'</li><li><i class="fas fa-check"></i> '+t("f5")+'</li></ul>'+
+  '</div></div>'+
+  '<div class="form-side"><button class="lang-fab" onclick="toggleLang()"><i class="fas fa-globe"></i> '+(lang==="en"?"हिंदी":"EN")+'</button>'+
+   '<div class="f-title">'+t("signin")+'</div><div class="f-sub">'+t("access")+'</div>'+
+   '<div class="fg"><label class="fl">'+t("email")+'</label><input id="le" class="fi" placeholder="you@company.in" autocomplete="username"></div>'+
+   '<div class="fg"><label class="fl">'+t("pass")+'</label><div class="pw"><input id="lp" type="password" class="fi" placeholder="••••••••" autocomplete="current-password"><button class="eye" onclick="togPw()"><i class="fas fa-eye" id="eye"></i></button></div></div>'+
+   '<button class="btn-lg" id="lbtn" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> '+t("login")+'</button>'+
+  '</div></div>'+
+  '<div class="login-foot">Developed By <strong>Sunil Tiwari</strong> &nbsp;|&nbsp; <i class="fas fa-phone"></i> 9027965956 &nbsp;|&nbsp; <i class="fas fa-envelope"></i> connect@systemmaster.in &nbsp;|&nbsp; <i class="fas fa-globe"></i> systemmaster.in</div>'+
+ '</div></div>';
+}
+function bindLogin(){["le","lp"].forEach(function(id){var el=$(id);if(el)el.onkeypress=function(e){if(e.key==="Enter")doLogin()}})}
+function togPw(){var i=$("lp"),e=$("eye");if(i.type==="password"){i.type="text";e.className="fas fa-eye-slash"}else{i.type="password";e.className="fas fa-eye"}}
+
+var NAV=[["dashboard","fa-chart-pie","all"],["mytasks","fa-list-check","all"],["entry","fa-circle-plus",["super","admin","manager","supervisor","operator"]],["batches","fa-boxes-stacked","all"],["scrap","fa-recycle","all"],["stock","fa-warehouse","all"],["planning","fa-bullseye",["super","admin","manager"]],["reports","fa-chart-column","all"],["users","fa-user-shield",["super","admin"]],["settings","fa-gear",["super","admin"]]];
+function visNav(){return NAV.filter(function(n){return n[2]==="all"||n[2].indexOf(user.role)!==-1})}
+
+function shell(){
+ var av=(user.name||"U")[0].toUpperCase();var cur=visNav().find(function(n){return n[0]===page});
+ return '<div class="app"><aside class="side" id="side">'+
+  '<div class="side-h"><div class="ic">'+logoHTML()+'</div><div><div class="nm">'+esc(COMPANY.name)+'</div><div class="sb">Agnipeak PMS</div></div></div>'+
+  '<div class="side-u"><div class="side-av">'+av+'</div><div><div class="nm">'+esc(user.name)+'</div><div class="rl">'+esc(user.role)+'</div></div></div>'+
+  '<nav class="nav" id="nav">'+visNav().map(function(n){return '<button class="'+(page===n[0]?"on":"")+'" data-p="'+n[0]+'"><i class="fas '+n[1]+'"></i> '+t(n[0])+(n[0]==="mytasks"?'<span class="nbadge" id="tbadge" style="display:none">0</span>':"")+'</button>'}).join("")+
+   '<button onclick="logout()" style="margin-top:14px;color:rgba(255,255,255,.55)"><i class="fas fa-sign-out-alt"></i> '+t("logout")+'</button></nav>'+
+  '<div class="side-f">'+esc(COMPANY.name)+' LLP · v2.0</div></aside>'+
+  '<div class="main"><header class="top">'+
+   '<button class="tbtn mtoggle" onclick="document.getElementById(\'side\').classList.toggle(\'show\')"><i class="fas fa-bars"></i></button>'+
+   '<h4><i class="fas '+(cur?cur[1]:"fa-chart-pie")+'"></i> '+t(page)+'</h4>'+
+   '<button class="tbtn lang" onclick="toggleLang()"><i class="fas fa-globe"></i> '+(lang==="en"?"हिं":"EN")+'</button>'+
+   '<button class="tbtn" onclick="toggleTheme()"><i class="fas '+(theme==="dark"?"fa-sun":"fa-moon")+'"></i></button></header>'+
+   '<div class="content" id="content"></div>'+
+   '<div class="foot">Developed By <strong>Sunil Tiwari</strong> <i class="fas fa-phone"></i> 9027965956 <i class="fas fa-envelope"></i> connect@systemmaster.in <i class="fas fa-globe"></i> systemmaster.in</div>'+
+  '</div></div>';
+}
+function bindNav(){document.querySelectorAll("[data-p]").forEach(function(b){b.onclick=function(){page=b.dataset.p;if(innerWidth<768)$("side").classList.remove("show");render()}});refreshBadge()}
+async function refreshBadge(){var bs=await dbAll("batches"),steps=await dbAll("batch_steps");var cnt=0;bs.forEach(function(b){if(b.status!=="in_progress")return;steps.forEach(function(s){if(s.batch_id===b.id&&((+s.in_qty||0)-(+s.done_qty||0))>0&&canDo(s.step_no))cnt++})});var el=$("tbadge");if(el){if(cnt){el.textContent=cnt;el.style.display=""}else el.style.display="none"}}
+
+/* ===================== PAGES ===================== */
+async function renderPage(){
+ Object.values(charts).forEach(function(c){try{c.destroy()}catch(e){}});charts={};
+ var c=$("content");c.innerHTML='<div class="view" id="vw"></div>';var v=$("vw");
+ if(page==="dashboard")await pageDash(v);
+ else if(page==="mytasks")await pageTasks(v);
+ else if(page==="entry"){await pageEntry(v);bindEntry()}
+ else if(page==="batches")await pageBatches(v);
+ else if(page==="scrap")await pageScrap(v);
+ else if(page==="stock")await pageStock(v);
+ else if(page==="timeline")await pageTimeline(v);
+ else if(page==="planning")await pagePlanning(v);
+ else if(page==="reports")await pageReports(v);
+ else if(page==="users")await pageUsers(v);
+ else if(page==="settings")await pageSettings(v);
+}
+
+/* ----- filter bar (dashboard + reports) ----- */
+function filterBar(onApply){
+ return '<div class="panel"><div class="panel-b filters">'+
+  '<div class="fg"><label class="fl">'+t("from")+'</label><input type="date" id="ff" class="fi" value="'+FILTER.from+'"></div>'+
+  '<div class="fg"><label class="fl">'+t("to")+'</label><input type="date" id="ft" class="fi" value="'+FILTER.to+'"></div>'+
+  '<div class="fg"><label class="fl">'+t("operator")+'</label><select id="fo" class="fi"><option value="">'+t("all_users")+'</option></select></div>'+
+  '<button class="btn btn-primary" onclick="'+onApply+'()"><i class="fas fa-filter"></i> '+t("apply")+'</button>'+
+  '<button class="btn btn-outline" onclick="quickRange(\'week\',\''+onApply+'\')">'+t("week")+'</button>'+
+  '<button class="btn btn-outline" onclick="quickRange(\'month\',\''+onApply+'\')">'+t("month")+'</button>'+
+  '<button class="btn btn-outline" onclick="quickRange(\'all\',\''+onApply+'\')">'+t("all_time")+'</button>'+
+ '</div></div>';
+}
+async function fillOps(){var us=await dbAll("app_users");var sel=$("fo");if(!sel)return;us.forEach(function(u){var o=document.createElement("option");o.value=u.name;o.textContent=u.name;if(u.name===FILTER.op)o.selected=true;sel.appendChild(o)})}
+function readFilter(){if($("ff"))FILTER.from=$("ff").value;if($("ft"))FILTER.to=$("ft").value;if($("fo"))FILTER.op=$("fo").value}
+function quickRange(r,fn){var to=new Date();var from=r==="week"?addDays(to,-7):r==="month"?addDays(to,-30):new Date(2000,0,1);FILTER.from=dstr(from);FILTER.to=dstr(to);FILTER.op="";window[fn]()}
+function inRange(iso){if(!iso)return false;var d=iso.slice(0,10);return d>=FILTER.from&&d<=FILTER.to}
+
+async function applyDash(){readFilter();page="dashboard";render()}
+async function pageDash(v){
+ var batches=await dbAll("batches"),entries=await dbAll("step_entries"),sales=await dbAll("sales"),slots=await dbAll("scrap_lots");
+ var sf=entries.filter(function(s){return inRange(s.created_at)&&(!FILTER.op||s.operator===FILTER.op)});
+ var bf=batches.filter(function(b){return inRange(b.created_at)});
+ var salf=sales.filter(function(s){return inRange(s.created_at)&&(!FILTER.op||s.operator===FILTER.op)});
+ var scf=slots.filter(function(s){return inRange(s.created_at)});
+ var output=sf.filter(function(s){return s.step_no===NSTEPS}).reduce(function(a,s){return a+(+s.good_qty||0)},0);
+ var soldTot=salf.reduce(function(a,s){return a+(+s.qty||0)},0);
+ var scrPend=scf.filter(function(s){return s.status==="in_progress"}).reduce(function(a,s){return a+(+s.qty||0)},0);
+ var scrDone=scf.filter(function(s){return s.status==="done"}).reduce(function(a,s){return a+(+s.qty||0)},0);
+ var sumIn=sf.reduce(function(a,s){return a+(+s.qty||0)},0),sumScrap=sf.reduce(function(a,s){return a+(+s.scrap_qty||0)},0),sumGood=sf.reduce(function(a,s){return a+(+s.good_qty||0)},0),sumRw=sf.reduce(function(a,s){return a+(+s.rework_qty||0)},0);
+ var scrapPct=sumIn?(sumScrap/sumIn*100).toFixed(1):"0.0",yieldPct=sumIn?(sumGood/sumIn*100).toFixed(1):"0.0";
+ var inprog=batches.filter(function(b){return b.status==="in_progress"}).length,done=batches.filter(function(b){return b.status==="completed"}).length;
+ var cards=[
+  [t("today_prod"),output.toLocaleString("en-IN"),t("pcs"),"box","blue"],
+  [t("sold_total"),soldTot.toLocaleString("en-IN"),t("pcs"),"cart-shopping","teal"],
+  [t("avg_scrap"),scrapPct,"%","recycle","red"],
+  [t("avg_yield"),yieldPct,"%","gauge-high","green"],
+  [t("scrap_pending"),scrPend.toLocaleString("en-IN"),t("pcs"),"hourglass-half","orange"],
+  [t("scrap_done"),scrDone.toLocaleString("en-IN"),t("pcs"),"check-double","purple"],
+  [t("total_batch"),bf.length,"","boxes-stacked","blue"],
+  [t("pending"),inprog,"","spinner","orange"]];
+ v.innerHTML=filterBar("applyDash")+
+  '<div class="stat-grid">'+cards.map(function(c){return '<div class="stat"><div class="ic bg-'+c[4]+'"><i class="fas fa-'+c[3]+'"></i></div><div><div class="lbl">'+c[0]+'</div><div class="val">'+c[1]+'<span style="font-size:.5em;font-weight:600;color:var(--muted)"> '+c[2]+'</span></div></div></div>'}).join("")+'</div>'+
+  '<div class="chart-grid"><div class="chart-card"><div class="chart-t"><i class="fas fa-chart-line"></i> '+t("trend")+'</div><div class="cwrap"><canvas id="c1"></canvas></div></div>'+
+   '<div class="chart-card"><div class="chart-t"><i class="fas fa-chart-pie"></i> '+t("quality")+'</div><div class="cwrap"><canvas id="c2"></canvas></div></div></div>'+
+  '<div class="chart-grid"><div class="chart-card"><div class="chart-t"><i class="fas fa-chart-column"></i> '+t("prod_by_step")+'</div><div class="cwrap"><canvas id="c3"></canvas></div></div>'+
+   '<div class="chart-card"><div class="chart-t"><i class="fas fa-chart-area"></i> '+t("scrap_by_step")+'</div><div class="cwrap"><canvas id="c4"></canvas></div></div></div>'+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-clock"></i> '+t("recent")+'</h5></div><div class="panel-b">'+batchRows(bf.slice(0,8),[])+'</div></div>';
+ await fillOps();dashCharts(sf,sumGood,sumScrap,sumRw);
+}
+function dashCharts(sf,good,scrap,rw){
+ var grid=theme==="dark"?"#243049":"#eef1f6",tickc=theme==="dark"?"#94a0b8":"#6b7280";Chart.defaults.color=tickc;Chart.defaults.font.family="Inter";
+ var byDay={};sf.filter(function(s){return s.step_no===NSTEPS}).forEach(function(s){var d=(s.created_at||"").slice(5,10);byDay[d]=(byDay[d]||0)+(+s.good_qty||0)});
+ var lab=Object.keys(byDay).sort(),dt=lab.map(function(k){return byDay[k]});if(!lab.length){lab=["—"];dt=[0]}
+ charts.c1=new Chart($("c1"),{type:"line",data:{labels:lab,datasets:[{label:"Output",data:dt,borderColor:"#0f2557",backgroundColor:"rgba(15,37,87,.1)",tension:.4,fill:true,pointRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:grid}},y:{grid:{color:grid}}}}});
+ charts.c2=new Chart($("c2"),{type:"doughnut",data:{labels:[t("good_q"),t("scrap_q"),t("rework_q")],datasets:[{data:[good,scrap,rw],backgroundColor:["#10b981","#ef4444","#f59e0b"],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"}}}});
+ var byG={},byS={};sf.forEach(function(s){byG[s.step_no]=(byG[s.step_no]||0)+(+s.good_qty||0);byS[s.step_no]=(byS[s.step_no]||0)+(+s.scrap_qty||0)});
+ var labs=STEPS.map(function(s,i){return (i+1)+""});
+ charts.c3=new Chart($("c3"),{type:"bar",data:{labels:labs,datasets:[{data:labs.map(function(n){return byG[n]||0}),backgroundColor:"#0f2557",borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:grid}}}}});
+ var cols=["#1d4ed8","#0ea5e9","#14b8a6","#10b981","#eab308","#f59e0b","#ef4444","#a855f7"];
+ charts.c4=new Chart($("c4"),{type:"polarArea",data:{labels:labs,datasets:[{data:labs.map(function(n){return byS[n]||0}),backgroundColor:cols}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"right",labels:{boxWidth:11,font:{size:10}}}}}});
+}
+
+function batchRows(bs,steps){
+ if(!bs.length)return '<div class="empty"><i class="fas fa-inbox"></i><div>'+t("no_batches")+'</div></div>';
+ return '<div class="tw"><table class="dt"><thead><tr><th>'+t("batch")+'</th><th>'+t("product")+'</th><th>'+t("step")+'</th><th>'+t("progress")+'</th><th>'+t("status")+'</th><th>'+t("date")+'</th><th></th></tr></thead><tbody>'+
+  bs.map(function(b){var pc=Math.round((b.status==="completed"?NSTEPS:(b.current_step-1))/NSTEPS*100);if(b.status==="sold")pc=100;var stName=STEPS[Math.min(b.current_step||1,NSTEPS)-1][lang==="hi"?1:0];
+   var stBadge=b.status==="completed"?'<span class="badge b-success">'+t("completed")+'</span>':b.status==="sold"?'<span class="badge b-info">'+t("sold")+'</span>':'<span class="badge b-warning">'+t("running")+'</span>';
+   return '<tr><td><strong>'+esc(b.batch_no)+'</strong></td><td>'+esc(b.product||"")+(b.color?' <span class="badge b-info">'+esc(b.color)+'</span>':"")+'</td><td>Step '+b.current_step+': '+esc(stName)+'</td>'+
+   '<td><div style="display:flex;align-items:center;gap:8px"><div class="prog"><div style="width:'+pc+'%"></div></div><span style="font-size:.8em">'+pc+'%</span></div></td>'+
+   '<td>'+stBadge+'</td>'+
+   '<td>'+(b.created_at||"").slice(0,10)+'</td><td><div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="openBatch('+b.id+')"><i class="fas fa-stream"></i> '+t("open")+'</button>'+(isSuperAdmin()?'<button class="btn btn-outline btn-sm" title="'+t("del_batch")+'" onclick="deleteBatch('+b.id+')"><i class="fas fa-trash" style="color:var(--danger)"></i></button>':'')+'</div></td></tr>'}).join("")+
+ '</tbody></table></div>';
+}
+function openBatch(id){curBatch=id;page="timeline";render()}
+function photoView(src){$("modal").innerHTML='<div class="mo" onclick="closeModal()"><img src="'+src+'" style="max-width:92vw;max-height:88vh;border-radius:12px"></div>'}
+
+async function pageTasks(v){
+ var batches=await dbAll("batches"),steps=await dbAll("batch_steps");
+ var tasks=[];
+ batches.forEach(function(b){if(b.status!=="in_progress")return;
+  steps.filter(function(s){return s.batch_id===b.id}).forEach(function(s){
+   var rem=(+s.in_qty||0)-(+s.done_qty||0);
+   if(rem>0&&canDo(s.step_no))tasks.push({b:b,s:s,rem:rem});
+  });
+ });
+ tasks.sort(function(a,b){return a.s.step_no-b.s.step_no});
+ v.innerHTML='<div class="panel"><div class="panel-h"><h5><i class="fas fa-list-check"></i> '+t("mytasks")+' <span class="badge b-info">'+tasks.length+'</span></h5></div><div class="panel-b">'+
+  (tasks.length?'<div class="tw"><table class="dt"><thead><tr><th>'+t("batch")+'</th><th>'+t("product")+'</th><th>'+t("color")+'</th><th>'+t("step")+'</th><th>'+(lang==="hi"?"पेंडिंग":"Pending Qty")+'</th><th></th></tr></thead><tbody>'+
+   tasks.map(function(x){return '<tr><td><strong>'+esc(x.b.batch_no)+'</strong></td><td>'+esc(x.b.product||"")+'</td><td><span class="badge b-info">'+esc(x.b.color||"")+'</span></td><td>Step '+x.s.step_no+': '+esc(STEPS[x.s.step_no-1][lang==="hi"?1:0])+'</td><td><b style="color:var(--accent)">'+x.rem+'</b></td><td><button class="btn btn-accent btn-sm" onclick="openBatch('+x.b.id+')"><i class="fas fa-arrow-right"></i> '+t("open")+'</button></td></tr>'}).join("")+
+   '</tbody></table></div>':'<div class="empty"><i class="fas fa-circle-check"></i><div>'+t("no_tasks")+'</div></div>')+
+ '</div></div>';
+}
+
+var PRODCACHE=[],COLORCACHE=[];
+async function pageEntry(v){
+ var batches=await dbAll("batches");var mx=0;batches.forEach(function(b){var m=String(b.batch_no||"").match(/(\d+)\s*$/);if(m){var n=parseInt(m[1],10);if(n>mx)mx=n}});var nextNo="BATCH-"+String(mx+1).padStart(4,"0");
+ PRODCACHE=await getProducts();COLORCACHE=await getColors();
+ var po='<option value="">'+t("select_product")+'</option>'+PRODCACHE.map(function(p){return '<option value="'+esc(p.name)+'" data-cav="'+p.cavity+'">'+esc(p.name)+' (cavity '+p.cavity+')</option>'}).join("");
+ var co=COLORCACHE.map(function(c){return '<option value="'+esc(c.name)+'">'+esc(c.name)+'</option>'}).join("")+'<option value="__custom__">'+t("custom")+'</option>';
+ v.innerHTML='<div class="panel" style="max-width:680px"><div class="panel-h"><h5><i class="fas fa-circle-plus"></i> '+t("entry")+'</h5></div><div class="panel-b">'+
+  '<div class="form-row">'+
+   '<div style="grid-column:1/-1"><label class="fl">'+t("batch")+' <span style="color:var(--muted);font-weight:400">(auto)</span></label><input id="e_batch" class="fi" value="'+nextNo+'"'+(isSuperAdmin()?'':' readonly style="background:var(--g100);cursor:not-allowed"')+'>'+(isSuperAdmin()?'':'<div style="font-size:.78em;color:var(--muted);margin-top:5px"><i class="fas fa-lock" style="color:var(--accent)"></i> '+t("batch_locked")+'</div>')+'</div>'+
+   '<div style="grid-column:1/-1"><label class="fl">'+t("auto_time")+'</label><input class="fi" value="'+new Date().toLocaleString()+'" readonly style="background:var(--g100)"></div>'+
+   '<div><label class="fl">'+t("product")+'</label><select id="e_prod" class="fi" onchange="prodChange()">'+po+'</select></div>'+
+   '<div><label class="fl">'+t("color")+'</label><select id="e_color" class="fi" onchange="colorChange()">'+co+'</select><input id="e_color_c" class="fi" style="display:none;margin-top:6px" placeholder="'+t("custom_color")+'"></div>'+
+   '<div><label class="fl">'+t("cavity")+'</label><input id="e_cav" class="fi" value="" readonly placeholder="auto"></div>'+
+   '<div><label class="fl">'+t("in_q")+'</label><input id="e_in" type="number" class="fi" value="100" oninput="qtyCalc()"></div>'+
+   '<div style="grid-column:1/-1"><label class="fl">'+t("final_q")+' <span style="color:var(--muted);font-weight:400">(= '+t("in_q")+' × '+t("cavity")+')</span></label><input id="e_final" class="fi" readonly style="font-weight:800;color:var(--accent);font-size:1.05em" value="—"></div>'+
+   '<div><label class="fl">'+t("shift")+'</label><select id="e_shift" class="fi">'+(lang==="hi"?["शिफ्ट A","शिफ्ट B","शिफ्ट C"]:["Shift A","Shift B","Shift C"]).map(function(x){return "<option>"+x+"</option>"}).join("")+'</select></div>'+
+   '<div><label class="fl">'+t("machine")+'</label><select id="e_machine" class="fi">'+["M-01","M-02","M-03","M-04"].map(function(x){return "<option>"+x+"</option>"}).join("")+'</select></div>'+
+   '<div style="grid-column:1/-1"><label class="fl">'+t("operator")+'</label><input id="e_op" class="fi" value="'+esc(user.name)+'"></div>'+
+  '</div>'+
+  '<p style="margin-top:12px;color:var(--muted);font-size:.84em"><i class="fas fa-info-circle" style="color:var(--accent)"></i> '+(lang==="hi"?"Step 1 (Moulding) shuru hoga — Final Qty hi Step 1 ka In hogi.":"Starts at Step 1 (Moulding) — Final Qty becomes Step 1 In.")+'</p>'+
+  '<button class="btn btn-accent" style="width:100%;justify-content:center;margin-top:14px" onclick="startBatch()"><i class="fas fa-play"></i> '+t("start_batch")+'</button>'+
+ '</div></div>';
+}
+function prodChange(){var s=$("e_prod");var o=s.options[s.selectedIndex];var cav=o&&o.getAttribute("data-cav")?+o.getAttribute("data-cav"):"";$("e_cav").value=cav;qtyCalc()}
+function colorChange(){var c=$("e_color");$("e_color_c").style.display=c.value==="__custom__"?"block":"none"}
+function qtyCalc(){var cav=+$("e_cav").value||0;var inq=+$("e_in").value||0;$("e_final").value=cav&&inq?(cav*inq).toLocaleString("en-IN"):"—"}
+function bindEntry(){}
+async function startBatch(){
+ var g=function(id){return $(id).value};
+ var prod=g("e_prod");if(!prod){toast(t("select_product"),"warning");return}
+ var color=g("e_color");if(color==="__custom__"){color=g("e_color_c").trim();if(!color){toast(t("custom_color"),"warning");return}
+  try{await dbInsert("colors",{name:color})}catch(e){}}
+ var cav=+$("e_cav").value||1;var inq=+$("e_in").value||0;var fin=cav*inq;
+ if(!g("e_batch")){toast("Batch number required","warning");return}
+ if(!inq){toast(t("in_q"),"warning");return}
+ try{var bid=await createBatch({batch_no:g("e_batch"),product:prod,color:color,cavity:cav,input_qty:inq,final_qty:fin,shift:g("e_shift"),machine:g("e_machine"),operator:g("e_op")});toast(t("started"),"success");openBatch(bid)}catch(e){toast("Error: "+e.message,"error")}
+}
+
+async function pageBatches(v){
+ var batches=await dbAll("batches"),steps=await dbAll("batch_steps");
+ v.innerHTML='<div class="panel"><div class="panel-h"><h5><i class="fas fa-boxes-stacked"></i> '+t("batches")+' <span class="badge b-info">'+batches.length+'</span></h5><button class="btn btn-primary btn-sm" onclick="page=\'entry\';render()"><i class="fas fa-plus"></i> '+t("entry")+'</button></div><div class="panel-b">'+batchRows(batches,steps)+'</div></div>';
+}
+
+/* ----- SCRAP PIPELINE ----- */
+async function pageScrap(v){
+ var lots=await dbAll("scrap_lots");
+ var pend=lots.filter(function(s){return s.status==="in_progress"}),done=lots.filter(function(s){return s.status==="done"});
+ function rows(list,act){
+  if(!list.length)return '<div class="empty"><i class="fas fa-inbox"></i><div>—</div></div>';
+  return '<div class="tw"><table class="dt"><thead><tr><th>'+t("batch")+'</th><th>'+t("product")+'</th><th>'+t("color")+'</th><th>'+t("from_step")+'</th><th>'+t("qty")+'</th><th>'+t("scrap_step")+'</th><th>'+t("date")+'</th>'+(act?'<th></th>':'')+'</tr></thead><tbody>'+
+   list.map(function(s){var sn=SCRAP_STEPS[Math.min(s.scrap_step||1,SCRAP_STEPS.length)-1][lang==="hi"?1:0];
+    return '<tr><td><strong>'+esc(s.batch_no)+'</strong></td><td>'+esc(s.product||"")+'</td><td><span class="badge b-info">'+esc(s.color||"")+'</span></td><td>Step '+s.from_step+'</td><td><b>'+s.qty+'</b></td><td>'+(s.status==="done"?'<span class="badge b-success">'+t("scrap_done")+'</span>':(s.scrap_step+'/'+SCRAP_STEPS.length+' · '+esc(sn)))+'</td><td>'+(s.created_at||"").slice(0,10)+'</td>'+
+    (act?'<td><button class="btn btn-accent btn-sm" onclick="scrapModal('+s.id+','+(s.scrap_step||1)+')"><i class="fas fa-arrow-right"></i> '+t("update_step")+'</button></td>':'')+'</tr>'}).join("")+
+  '</tbody></table></div>';
+ }
+ v.innerHTML='<div class="panel"><div class="panel-h"><h5><i class="fas fa-recycle"></i> '+t("scrap")+' — '+t("pending_s")+' <span class="badge b-warning">'+pend.length+'</span></h5></div><div class="panel-b">'+rows(pend,true)+'</div></div>'+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-check-double"></i> '+t("scrap_done")+' <span class="badge b-success">'+done.length+'</span></h5></div><div class="panel-b">'+rows(done,false)+'</div></div>';
+}
+function scrapModal(id,curStep){
+ var last=curStep>=SCRAP_STEPS.length;
+ $("modal").innerHTML='<div class="mo"><div class="modal"><div class="modal-h"><h5><i class="fas fa-recycle"></i> '+t("scrap_step")+' '+curStep+': '+esc(SCRAP_STEPS[curStep-1][lang==="hi"?1:0])+'</h5><button class="tbtn" onclick="closeModal()"><i class="fas fa-times"></i></button></div>'+
+  '<div class="modal-b">'+
+   '<div class="fg"><label class="fl">'+t("operator")+'</label><input id="sc_op" class="fi" value="'+esc(user.name)+'"></div>'+
+   '<div class="fg"><label class="fl">'+t("remarks")+'</label><input id="sc_rem" class="fi"></div>'+
+  '</div>'+
+  '<div class="modal-f"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="scrapAdvance('+id+','+curStep+')"><i class="fas fa-check"></i> '+(last?t("complete"):t("complete_next"))+'</button></div>'+
+ '</div></div>';
+}
+async function scrapAdvance(id,curStep){
+ try{
+  var patch={operator:$("sc_op").value,remark:$("sc_rem").value};
+  if(curStep>=SCRAP_STEPS.length){patch.status="done";patch.completed_at=nowISO();patch.scrap_step=SCRAP_STEPS.length}
+  else patch.scrap_step=curStep+1;
+  await dbUpdate("scrap_lots",id,patch);toast(t("step_done"),"success");closeModal();render();
+ }catch(e){toast("Error: "+e.message,"error")}
+}
+
+/* ----- STOCK DASHBOARD ----- */
+async function pageStock(v){
+ var batches=await dbAll("batches"),steps=await dbAll("batch_steps"),sales=await dbAll("sales"),slots=await dbAll("scrap_lots");
+ var rows=batches.map(function(b){
+  var bs=steps.filter(function(s){return s.batch_id===b.id});
+  // stock counts from Step 1 completion onward: sab kuch jo steps 2..10 me pending hai
+  var inProc=bs.filter(function(s){return s.step_no>=2}).reduce(function(a,s){return a+Math.max(0,(+s.in_qty||0)-(+s.done_qty||0))},0);
+  var rwAdd=bs.filter(function(s){return s.step_no===6}).reduce(function(a,s){return a+(+s.good_qty||0)},0);
+  var sold=sales.filter(function(s){return s.batch_id===b.id}).reduce(function(a,s){return a+(+s.qty||0)},0);
+  var scT=slots.filter(function(s){return s.batch_id===b.id}).reduce(function(a,s){return a+(+s.qty||0)},0);
+  var scP=slots.filter(function(s){return s.batch_id===b.id&&s.status==="in_progress"}).reduce(function(a,s){return a+(+s.qty||0)},0);
+  var packed=bs.filter(function(s){return s.step_no===NSTEPS}).reduce(function(a,s){return a+(+s.good_qty||0)},0);
+  var stName=b.status==="in_progress"?("Step "+b.current_step+": "+STEPS[Math.min(b.current_step,NSTEPS)-1][lang==="hi"?1:0]):b.status;
+  return {b:b,inProc:inProc,rwAdd:rwAdd,sold:sold,scT:scT,scP:scP,packed:packed,stName:stName};
+ });
+ // totals
+ var T={inProc:0,rwAdd:0,sold:0,scP:0,scT:0,packed:0};
+ rows.forEach(function(r){T.inProc+=r.inProc;T.rwAdd+=r.rwAdd;T.sold+=r.sold;T.scP+=r.scP;T.scT+=r.scT;T.packed+=r.packed});
+ var totalStock=T.inProc+T.packed;
+ var fmt=function(n){return (+n||0).toLocaleString("en-IN")};
+ var cards=[
+  [t("total_stock"),fmt(totalStock),t("pcs"),"warehouse","blue"],
+  [t("in_process"),fmt(T.inProc),t("pcs"),"spinner","orange"],
+  ["Packed",fmt(T.packed),t("pcs"),"box","green"],
+  [t("rework_added"),fmt(T.rwAdd),t("pcs"),"rotate-left","purple"],
+  [t("sold_total"),fmt(T.sold),t("pcs"),"cart-shopping","teal"],
+  [t("scrap_pending"),fmt(T.scP),t("pcs"),"hourglass-half","red"]];
+ // group by product + color
+ var grp={};
+ rows.forEach(function(r){var k=(r.b.product||"")+"||"+(r.b.color||"");if(!grp[k])grp[k]={product:r.b.product||"",color:r.b.color||"",n:0,inProc:0,rwAdd:0,sold:0,scP:0,scT:0,packed:0};
+  var g=grp[k];g.n++;g.inProc+=r.inProc;g.rwAdd+=r.rwAdd;g.sold+=r.sold;g.scP+=r.scP;g.scT+=r.scT;g.packed+=r.packed});
+ var gl=Object.values(grp);
+ v.innerHTML='<div class="stat-grid">'+cards.map(function(c){return '<div class="stat"><div class="ic bg-'+c[4]+'"><i class="fas fa-'+c[3]+'"></i></div><div><div class="lbl">'+c[0]+'</div><div class="val">'+c[1]+'<span style="font-size:.5em;font-weight:600;color:var(--muted)"> '+c[2]+'</span></div></div></div>'}).join("")+'</div>'+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-layer-group"></i> '+t("by_pc")+' <span class="badge b-info">'+gl.length+'</span></h5></div><div class="panel-b">'+
+  (gl.length?'<div class="tw"><table class="dt"><thead><tr><th>'+t("product")+'</th><th>'+t("color")+'</th><th>'+t("batches_n")+'</th><th>'+t("in_process")+'</th><th>Packed</th><th>'+t("total_stock")+'</th><th>'+t("rework_added")+'</th><th>'+t("sold")+'</th><th>'+t("scrap_pending")+'</th><th>'+t("scrap_q")+'</th></tr></thead><tbody>'+
+  gl.map(function(g){var ts=g.inProc+g.packed;return '<tr><td><strong>'+esc(g.product)+'</strong></td><td><span class="badge b-info">'+esc(g.color)+'</span></td><td>'+g.n+'</td><td><b>'+fmt(g.inProc)+'</b></td><td style="color:var(--success);font-weight:700">'+fmt(g.packed)+'</td><td style="color:var(--primary);font-weight:800">'+fmt(ts)+'</td><td style="color:#8b5cf6;font-weight:700">'+fmt(g.rwAdd)+'</td><td style="color:var(--teal);font-weight:700">'+fmt(g.sold)+'</td><td style="color:var(--warning);font-weight:700">'+fmt(g.scP)+'</td><td style="color:var(--danger)">'+fmt(g.scT)+'</td></tr>'}).join("")+
+  '</tbody></table></div>':'<div class="empty"><i class="fas fa-inbox"></i><div>'+t("no_batches")+'</div></div>')+'</div></div>'+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-boxes-stacked"></i> '+t("by_batch")+' <span class="badge b-info">'+rows.length+'</span></h5></div><div class="panel-b">'+
+  (rows.length?'<div class="tw"><table class="dt"><thead><tr><th>'+t("batch")+'</th><th>'+t("product")+'</th><th>'+t("color")+'</th><th>'+t("status")+'</th><th>'+t("in_process")+'</th><th>'+t("rework_added")+'</th><th>'+t("sold")+'</th><th>'+t("scrap_pending")+'</th><th>'+t("scrap_q")+' (total)</th><th>Packed</th></tr></thead><tbody>'+
+  rows.map(function(r){return '<tr><td><strong>'+esc(r.b.batch_no)+'</strong></td><td>'+esc(r.b.product||"")+'</td><td><span class="badge b-info">'+esc(r.b.color||"")+'</span></td><td>'+esc(r.stName)+'</td><td><b>'+fmt(r.inProc)+'</b></td><td style="color:#8b5cf6;font-weight:700">'+fmt(r.rwAdd)+'</td><td style="color:var(--teal);font-weight:700">'+fmt(r.sold)+'</td><td style="color:var(--warning);font-weight:700">'+fmt(r.scP)+'</td><td style="color:var(--danger)">'+fmt(r.scT)+'</td><td style="color:var(--success);font-weight:700">'+fmt(r.packed)+'</td></tr>'}).join("")+
+  '</tbody></table></div>':'<div class="empty"><i class="fas fa-inbox"></i><div>'+t("no_batches")+'</div></div>')+'</div></div>';
+}
+
+async function pageTimeline(v){
+ var batches=await dbAll("batches");var b=batches.find(function(x){return x.id===curBatch});if(!b){v.innerHTML='<div class="empty"><i class="fas fa-inbox"></i><div>'+t("no_batches")+'</div></div>';return}
+ var steps=await stepsOf(curBatch);
+ var html='<div class="panel"><div class="panel-h"><h5><i class="fas fa-stream"></i> '+esc(b.batch_no)+' · '+esc(b.product||"")+(b.color?' · '+esc(b.color):"")+'</h5><div style="display:flex;gap:8px">'+(isSuperAdmin()?'<button class="btn btn-outline btn-sm" onclick="deleteBatch('+b.id+')"><i class="fas fa-trash" style="color:var(--danger)"></i> '+t("del_batch")+'</button>':'')+'<button class="btn btn-outline btn-sm" onclick="page=\'batches\';render()"><i class="fas fa-arrow-left"></i> '+t("back")+'</button></div></div><div class="panel-b">'+
+  '<div class="tl-meta" style="margin-bottom:16px">'+
+    '<div><div class="k">'+t("status")+'</div>'+(b.status==="completed"?'<span class="badge b-success">'+t("completed")+'</span>':b.status==="sold"?'<span class="badge b-info">'+t("sold")+'</span>':'<span class="badge b-warning">'+t("running")+'</span>')+'</div>'+
+    '<div><div class="k">'+t("color")+'</div>'+esc(b.color||"—")+'</div>'+
+    '<div><div class="k">'+t("cavity")+'</div>'+(b.cavity||"—")+'</div>'+
+    '<div><div class="k">'+t("in_q")+'</div>'+(b.input_qty||"—")+'</div>'+
+    '<div><div class="k">'+t("final_q")+'</div><b>'+((b.final_qty||0).toLocaleString("en-IN"))+'</b></div>'+
+  '</div>'+
+  '<div class="tl">';
+ steps.forEach(function(s){
+  var rem=(+s.in_qty||0)-(+s.done_qty||0);
+  var cls=s.status;var canEdit=rem>0&&canDo(s.step_no);
+  html+='<div class="tlstep '+cls+'"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'+
+   '<div><div style="font-weight:700">Step '+s.step_no+': '+esc(STEPS[s.step_no-1][lang==="hi"?1:0])+'</div></div>'+
+   '<span class="badge b-'+(s.status==="completed"?"success":s.status==="running"?"warning":"gray")+'">'+t(s.status==="pending"?"pending_s":s.status)+'</span></div>'+
+   '<div class="tl-meta">'+
+     '<div><div class="k">'+t("in_q")+'</div>'+(s.in_qty||"—")+'</div>'+
+     '<div><div class="k">'+(lang==="hi"?"हो गया":"Done")+'</div>'+(s.done_qty||0)+'</div>'+
+     '<div><div class="k" style="color:var(--accent)">'+(lang==="hi"?"पेंडिंग":"Pending")+'</div><b style="color:var(--accent)">'+(rem>0?rem:0)+'</b></div>'+
+     '<div><div class="k">'+t("good_q")+'</div>'+(s.good_qty||0)+'</div>'+
+     '<div><div class="k">'+t("scrap_q")+'</div>'+(s.scrap_qty||0)+'</div>'+
+     '<div><div class="k">'+(s.step_no===5?t("manual_q"):t("rework_q"))+'</div>'+(s.rework_qty||0)+'</div>'+
+     '<div><div class="k">'+t("operator")+'</div>'+esc(s.operator||"—")+'</div>'+
+   '</div>'+
+   (s.added_item?'<div style="margin-top:8px;font-size:.84em;color:var(--muted)"><i class="fas fa-plus-circle" style="color:var(--accent)"></i> '+esc(s.added_item)+'</div>':"")+
+   (s.remark?'<div style="margin-top:6px;font-size:.84em;color:var(--muted)"><i class="fas fa-comment"></i> '+esc(s.remark)+'</div>':"")+
+   (s.photo?'<div style="margin-top:8px"><img src="'+s.photo+'" style="max-width:120px;border-radius:8px;border:1px solid var(--line);cursor:pointer" onclick="photoView(this.src)"></div>':"")+
+   (rem>0?(canEdit?'<div style="margin-top:12px"><button class="btn btn-accent btn-sm" onclick="stepModal('+curBatch+','+s.step_no+','+rem+')"><i class="fas fa-edit"></i> '+t("update_step")+' ('+rem+')</button></div>':'<div style="margin-top:10px;font-size:.82em;color:var(--muted)"><i class="fas fa-lock"></i> '+t("not_yours")+'</div>'):"")+
+   (s.status==="pending"?'<div style="margin-top:8px;font-size:.8em;color:var(--muted)"><i class="fas fa-lock"></i> '+t("locked")+'</div>':"")+
+  '</div>';
+ });
+ html+='</div></div>';
+ /* v3: Entry Log of this batch — edit/delete (permission based) */
+ var ents=(await dbAll("step_entries")).filter(function(x){return x.batch_id===curBatch});
+ ENTCACHE=ents;
+ html+=entryLogPanel(ents);
+ v.innerHTML=html;
+}
+function stepModal(bid,stepNo,rem){
+ var fin=stepNo===NSTEPS,s1=stepNo===1,s2=stepNo===2,s5=stepNo===5,s6=stepNo===6;
+ $("modal").innerHTML='<div class="mo"><div class="modal"><div class="modal-h"><h5><i class="fas fa-edit"></i> Step '+stepNo+': '+esc(STEPS[stepNo-1][lang==="hi"?1:0])+'</h5><button class="tbtn" onclick="closeModal()"><i class="fas fa-times"></i></button></div>'+
+  '<div class="modal-b"><div class="form-row">'+
+   '<div><label class="fl">'+(lang==="hi"?"पेंडिंग (In)":"Pending (In)")+'</label><input id="m_in" class="fi" value="'+rem+'" readonly></div>'+
+   '<div><label class="fl" style="color:var(--accent)">'+(lang==="hi"?"कितनी मात्रा का काम हुआ? *":"Process Qty (how much done?) *")+'</label><input id="m_qty" type="number" class="fi" value="'+rem+'" max="'+rem+'" oninput="mCalc()" style="font-weight:800"></div>'+
+   (s1?'<input type="hidden" id="m_scrap" value="0"><input type="hidden" id="m_rework" value="0">':
+     '<div><label class="fl">'+t("scrap_q")+'</label><input id="m_scrap" type="number" class="fi" value="0" oninput="mCalc()"></div>'+
+     ((s2||s6)?'<input type="hidden" id="m_rework" value="0">':'<div><label class="fl">'+(s5?t("manual_q"):t("rework_q"))+'</label><input id="m_rework" type="number" class="fi" value="0" oninput="mCalc()"></div>'))+
+   '<div><label class="fl">'+t("good_q")+' <span style="color:var(--muted);font-weight:400">(auto)</span></label><input id="m_good" class="fi" value="'+rem+'" readonly style="font-weight:800;color:var(--success)"></div>'+
+   '<div style="grid-column:1/-1;font-size:.8em;color:var(--muted)"><i class="fas fa-circle-info" style="color:var(--accent)"></i> '+(lang==="hi"?"जितनी मात्रा डालोगे उतनी ही आगे जाएगी — बाकी यहीं पेंडिंग रहेगी।":"Only the Process Qty moves ahead — the rest stays pending here.")+'</div>'+
+   (s1?'<div style="grid-column:1/-1;font-size:.82em;color:var(--muted)"><i class="fas fa-info-circle" style="color:var(--accent)"></i> '+t("no_scrap_s1")+'</div>':'')+
+   (s2?'<div style="grid-column:1/-1;font-size:.82em;color:var(--muted)"><i class="fas fa-info-circle" style="color:var(--accent)"></i> '+t("no_rework_s2")+'</div>':'')+
+   (s5?'<div style="grid-column:1/-1;font-size:.82em;color:var(--muted)"><i class="fas fa-info-circle" style="color:var(--accent)"></i> '+t("s5_hint")+'</div>':'')+
+   (s6?'<div style="grid-column:1/-1;font-size:.82em;color:var(--muted)"><i class="fas fa-info-circle" style="color:var(--accent)"></i> '+t("s6_hint")+'</div>':'')+
+   '<div style="grid-column:1/-1;background:var(--g50);border:1px solid var(--line);border-radius:10px;padding:12px">'+
+     '<label class="fl" style="color:var(--accent)"><i class="fas fa-cart-shopping"></i> '+t("sale")+'</label>'+
+     '<select id="m_sale" class="fi" onchange="saleChange()"><option value="none">'+t("no_sale")+'</option><option value="full">'+t("full_sale")+'</option><option value="partial">'+t("partial_sale")+'</option></select>'+
+     '<input id="m_saleq" type="number" class="fi" style="display:none;margin-top:8px" placeholder="'+t("sale_qty")+'" oninput="saleChange()">'+
+     '<div style="font-size:.78em;color:var(--muted);margin-top:6px">'+t("sale_note")+'</div>'+
+     '<div id="m_saleinfo" style="display:none;font-size:.82em;font-weight:600;color:var(--accent);margin-top:6px"></div>'+
+   '</div>'+
+   '<div style="grid-column:1/-1"><label class="fl">'+t("added")+'</label><input id="m_added" class="fi" placeholder="'+(lang==="hi"?"jaise: wick, flint, gas...":"e.g. wick, flint, gas...")+'"></div>'+
+   '<div><label class="fl">'+t("operator")+'</label><input id="m_op" class="fi" value="'+esc(user.name)+'"></div>'+
+   '<div><label class="fl">'+t("take_photo")+'</label><input id="m_photo" type="file" accept="image/*" capture="environment" class="fi" onchange="photoMark()"><div id="m_pho_ok" style="display:none;font-size:.8em;color:var(--success);margin-top:4px"><i class="fas fa-check"></i> '+t("photo_added")+'</div></div>'+
+   '<div style="grid-column:1/-1"><label class="fl">'+t("remarks")+'</label><input id="m_rem" class="fi"></div>'+
+  '</div>'+
+  '<div class="calc-grid" style="margin-top:14px"><div class="calc" style="background:rgba(239,68,68,.1)"><div class="v" id="m_sp" style="color:var(--danger);font-size:1.2em">0%</div><div class="l">'+t("scrap_pct")+'</div></div><div class="calc" style="background:rgba(16,185,129,.1)"><div class="v" id="m_yp" style="color:var(--success);font-size:1.2em">100%</div><div class="l">'+t("yield_pct")+'</div></div><div class="calc" style="background:rgba(245,158,11,.1)"><div class="v" id="m_rp" style="color:var(--accent);font-size:1.2em">0%</div><div class="l">'+t("rework_pct")+'</div></div></div>'+
+  '</div>'+
+  '<div class="modal-f"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-accent" id="m_save" onclick="saveStep('+bid+','+stepNo+')"><i class="fas fa-check"></i> '+(fin?t("complete_final"):t("complete_next"))+'</button></div>'+
+ '</div></div>';mCalc();
+}
+function saleChange(){
+ var v=$("m_sale").value;var good=+$("m_good").value||0;
+ $("m_saleq").style.display=v==="partial"?"block":"none";
+ var info=$("m_saleinfo");
+ if(v==="full"){info.style.display="block";info.textContent=t("sold")+": "+good+" · "+(lang==="hi"?"लॉट यहीं खत्म":"lot ends here")}
+ else if(v==="partial"){var sq=Math.min(good,+$("m_saleq").value||0);info.style.display="block";info.textContent=t("sold")+": "+sq+" · "+(lang==="hi"?"अगले स्टेप पर":"to next step")+": "+(good-sq)}
+ else info.style.display="none";
+}
+function photoMark(){var f=$("m_photo");if(f&&f.files&&f.files[0])$("m_pho_ok").style.display="block"}
+function mCalc(){var g=function(id){return +$(id).value||0};var q=g("m_qty"),sc=g("m_scrap"),rw=g("m_rework");var good=Math.max(0,q-sc-rw);$("m_good").value=good;var p=function(n){return q?(n/q*100).toFixed(1):"0.0"};$("m_sp").textContent=p(sc)+"%";$("m_yp").textContent=p(good)+"%";$("m_rp").textContent=p(rw)+"%";if($("m_sale")&&$("m_sale").value!=="none")saleChange()}
+function readPhoto(){return new Promise(function(res){var inp=$("m_photo");var f=inp&&inp.files&&inp.files[0];if(!f){res("");return}var fr=new FileReader();fr.onload=function(){var img=new Image();img.onload=function(){try{var mx=Math.max(img.width,img.height);var sc=Math.min(1,520/mx);var c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext("2d").drawImage(img,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",0.6))}catch(e){res("")}};img.onerror=function(){res("")};img.src=fr.result};fr.onerror=function(){res("")};fr.readAsDataURL(f)})}
+function closeModal(){$("modal").innerHTML=""}
+async function saveStep(bid,stepNo){
+ var g=function(id){return $(id).value};var n=function(id){return +$(id).value||0};
+ var qty=n("m_qty"),rem=n("m_in");
+ if(!qty||qty<=0||qty>rem){toast((lang==="hi"?"Process Qty 1 se ":"Process Qty must be 1 to ")+rem,"warning");return}
+ if(n("m_scrap")+n("m_rework")>qty){toast("Scrap+Rework > Qty","warning");return}
+ var sale=$("m_sale")?$("m_sale").value:"none";var saleq=n("m_saleq");
+ if(sale==="partial"&&(!saleq||saleq<=0)){toast(t("sale_qty"),"warning");return}
+ if(sale==="partial"&&saleq>n("m_good")){toast(t("sale_qty")+" > Good!","warning");return}
+ var b=$("m_save");b.disabled=true;b.innerHTML='<i class="fas fa-spinner fa-spin"></i> …';
+ try{var photo=await readPhoto();
+  await addStepEntry(bid,stepNo,{qty:qty,scrap:n("m_scrap"),rework:n("m_rework"),added:g("m_added"),remark:g("m_rem"),operator:g("m_op"),photo:photo,sale:sale,sale_qty:saleq});
+  toast(t("step_done"),"success");closeModal();render()}catch(e){b.disabled=false;b.innerHTML='<i class="fas fa-check"></i> OK';toast("Error: "+e.message,"error")}
+}
+
+async function pagePlanning(v){
+ var steps=await dbAll("batch_steps");var actual=steps.filter(function(s){return s.step_no===8&&s.status==="completed"}).reduce(function(a,s){return a+(+s.good_qty||0)},0);var planned=Math.max(actual,10000);var ach=Math.round(actual/planned*100);
+ v.innerHTML='<div class="chart-grid" style="grid-template-columns:1fr 1fr"><div class="chart-card"><div class="chart-t"><i class="fas fa-bullseye"></i> '+t("achievement")+'</div><div class="cwrap"><canvas id="cp"></canvas></div></div><div>'+
+  [[t("planned"),planned,"var(--info)"],[t("actual"),actual,"var(--accent)"],[t("gap"),planned-actual,"var(--danger)"]].map(function(c){return '<div class="panel"><div class="panel-b" style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--muted)">'+c[0]+'</span><span style="font-family:\'Sora\';font-size:1.4em;font-weight:800;color:'+c[2]+'">'+c[1].toLocaleString("en-IN")+'</span></div></div>'}).join("")+'</div></div>';
+ charts.cp=new Chart($("cp"),{type:"doughnut",data:{labels:[t("achievement"),t("gap")],datasets:[{data:[ach,100-ach],backgroundColor:["#f59e0b","#e5e7eb"],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:"72%",plugins:{legend:{display:false}}}});
+}
+
+async function applyRep(){readFilter();page="reports";render()}
+async function pageReports(v){
+ var entries=await dbAll("step_entries"),sales=await dbAll("sales"),slots=await dbAll("scrap_lots");
+ var sf=entries.filter(function(s){return inRange(s.created_at)&&(!FILTER.op||s.operator===FILTER.op)});
+ var salf=sales.filter(function(s){return inRange(s.created_at)&&(!FILTER.op||s.operator===FILTER.op)});
+ var scf=slots.filter(function(s){return inRange(s.created_at)});
+ window._rep=sf;window._repSales=salf;window._repScrap=scf;ENTCACHE=sf;
+ v.innerHTML=filterBar("applyRep")+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-industry"></i> '+t("prod_rep")+' <span class="badge b-info">'+sf.length+'</span></h5>'+
+   '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="repCSV()"><i class="fas fa-file-csv"></i> CSV</button><button class="btn btn-outline btn-sm" onclick="repExcel()"><i class="fas fa-file-excel"></i> Excel</button><button class="btn btn-outline btn-sm" onclick="repPrint()"><i class="fas fa-print"></i> '+t("print")+'</button><button class="btn btn-accent btn-sm" onclick="backupSheets()"><i class="fas fa-table"></i> Sheets</button></div></div>'+
+   '<div class="panel-b">'+(sf.length?'<div class="tw"><table class="dt"><thead><tr><th>'+t("date")+'</th><th>'+t("batch")+'</th><th>'+t("color")+'</th><th>'+t("step")+'</th><th>'+t("operator")+'</th><th>Qty</th><th>'+t("good_q")+'</th><th>'+t("scrap_q")+'</th><th>'+t("sold")+'</th><th>Added</th><th>'+t("actions")+'</th></tr></thead><tbody>'+
+   sf.map(function(s){return '<tr><td>'+(s.created_at||"").slice(0,10)+'</td><td><strong>'+esc(s.batch_no)+'</strong></td><td><span class="badge b-info">'+esc(s.color||"")+'</span></td><td>Step '+s.step_no+'</td><td>'+esc(s.operator||"")+'</td><td>'+s.qty+'</td><td style="color:var(--success);font-weight:700">'+s.good_qty+'</td><td style="color:var(--danger)">'+s.scrap_qty+'</td><td style="color:var(--teal)">'+(s.sale_qty||0)+'</td><td>'+esc(s.added_item||"")+'</td><td>'+entryActionsHTML(s)+'</td></tr>'}).join("")+'</tbody></table></div>':'<div class="empty"><i class="fas fa-inbox"></i><div>No data in range</div></div>')+'</div></div>'+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-cart-shopping"></i> '+t("sales_rep")+' <span class="badge b-info">'+salf.length+'</span></h5><button class="btn btn-outline btn-sm" onclick="salesCSV()"><i class="fas fa-file-csv"></i> CSV</button></div>'+
+   '<div class="panel-b">'+(salf.length?'<div class="tw"><table class="dt"><thead><tr><th>'+t("date")+'</th><th>'+t("batch")+'</th><th>'+t("product")+'</th><th>'+t("color")+'</th><th>'+t("step")+'</th><th>'+t("qty")+'</th><th>'+t("sale")+'</th><th>'+t("operator")+'</th></tr></thead><tbody>'+
+   salf.map(function(s){return '<tr><td>'+(s.created_at||"").slice(0,10)+'</td><td><strong>'+esc(s.batch_no)+'</strong></td><td>'+esc(s.product||"")+'</td><td><span class="badge b-info">'+esc(s.color||"")+'</span></td><td>Step '+s.step_no+'</td><td><b style="color:var(--teal)">'+s.qty+'</b></td><td>'+(s.sale_type==="full"?t("full_sale"):t("partial_sale"))+'</td><td>'+esc(s.operator||"")+'</td></tr>'}).join("")+'</tbody></table></div>':'<div class="empty"><i class="fas fa-inbox"></i><div>No sales in range</div></div>')+'</div></div>'+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-recycle"></i> '+t("scrap_rep")+' <span class="badge b-info">'+scf.length+'</span></h5><button class="btn btn-outline btn-sm" onclick="scrapCSV()"><i class="fas fa-file-csv"></i> CSV</button></div>'+
+   '<div class="panel-b">'+(scf.length?'<div class="tw"><table class="dt"><thead><tr><th>'+t("date")+'</th><th>'+t("batch")+'</th><th>'+t("product")+'</th><th>'+t("color")+'</th><th>'+t("from_step")+'</th><th>'+t("qty")+'</th><th>'+t("status")+'</th></tr></thead><tbody>'+
+   scf.map(function(s){return '<tr><td>'+(s.created_at||"").slice(0,10)+'</td><td><strong>'+esc(s.batch_no)+'</strong></td><td>'+esc(s.product||"")+'</td><td><span class="badge b-info">'+esc(s.color||"")+'</span></td><td>Step '+s.from_step+'</td><td><b style="color:var(--danger)">'+s.qty+'</b></td><td>'+(s.status==="done"?'<span class="badge b-success">'+t("scrap_done")+'</span>':'<span class="badge b-warning">'+t("scrap_pending")+'</span>')+'</td></tr>'}).join("")+'</tbody></table></div>':'<div class="empty"><i class="fas fa-inbox"></i><div>No scrap in range</div></div>')+'</div></div>';
+ await fillOps();
+}
+function salesCSV(){dl("sales_"+dstr(new Date())+".csv",toCSV(window._repSales||[]),"text/csv");toast("CSV downloaded","success")}
+function scrapCSV(){dl("scrap_"+dstr(new Date())+".csv",toCSV(window._repScrap||[]),"text/csv");toast("CSV downloaded","success")}
+
+var UCACHE=[];
+async function pageUsers(v){
+ var rows=await dbAll("app_users");UCACHE=rows;
+ v.innerHTML='<div class="panel"><div class="panel-h"><h5><i class="fas fa-user-shield"></i> '+t("users")+' <span class="badge b-info">'+rows.length+'</span></h5><button class="btn btn-primary btn-sm" onclick="userModal()"><i class="fas fa-plus"></i> '+t("add_user")+'</button></div><div class="panel-b"><div class="tw"><table class="dt"><thead><tr><th>'+t("name")+'</th><th>'+t("email")+'</th><th>'+t("role")+'</th><th>Steps</th><th>'+(lang==="hi"?"एडिट/डिलीट":"Edit/Del")+'</th><th>'+t("phone")+'</th><th>'+t("status")+'</th><th></th></tr></thead><tbody>'+
+  rows.map(function(u){return '<tr><td><strong>'+esc(u.name)+'</strong></td><td>'+esc(u.email)+'</td><td><span class="badge b-info">'+esc(u.role)+'</span></td><td>'+(["super","admin","manager"].indexOf(u.role)!==-1?'<span class="badge b-gray">ALL</span>':esc(u.allowed_steps||"—"))+'</td><td>'+((["super","admin"].indexOf(u.role)!==-1||u.can_edit_entries)?'<span class="badge b-success">YES</span>':'<span class="badge b-gray">—</span>')+'</td><td>'+esc(u.phone||"")+'</td><td>'+(u.active?'<span class="badge b-success">'+t("active")+'</span>':'<span class="badge b-gray">Off</span>')+'</td><td><button class="btn btn-outline btn-sm" onclick="userModal('+u.id+')"><i class="fas fa-pen"></i> '+t("edit")+'</button></td></tr>'}).join("")+
+  '</tbody></table></div></div></div>';
+}
+function userModal(id){
+ var u=id?UCACHE.find(function(x){return x.id===id}):null;
+ var sel=u?parseSteps(u.allowed_steps):[];
+ var chk=STEPS.map(function(s,i){return '<label class="chk"><input type="checkbox" class="ustep" value="'+(i+1)+'"'+(sel.indexOf(i+1)!==-1?' checked':'')+'> '+(i+1)+'. '+esc(s[lang==="hi"?1:0])+'</label>'}).join("");
+ $("modal").innerHTML='<div class="mo"><div class="modal"><div class="modal-h"><h5><i class="fas fa-user-'+(u?'pen':'plus')+'"></i> '+(u?t("edit"):t("add_user"))+'</h5><button class="tbtn" onclick="closeModal()"><i class="fas fa-times"></i></button></div>'+
+  '<div class="modal-b">'+
+   '<div class="fg"><label class="fl">'+t("name")+' *</label><input id="u_name" class="fi" value="'+esc(u?u.name:"")+'"></div>'+
+   '<div class="fg"><label class="fl">'+t("email")+' *</label><input id="u_email" class="fi" value="'+esc(u?u.email:"")+'"></div>'+
+   '<div class="fg"><label class="fl">'+t("pass")+' *</label><input id="u_pass" class="fi" value="'+esc(u?u.password:"welcome123")+'"></div>'+
+   '<div class="fg"><label class="fl">'+t("role")+'</label><select id="u_role" class="fi">'+ROLES.map(function(r){return '<option'+(u&&u.role===r?' selected':'')+'>'+r+'</option>'}).join("")+'</select></div>'+
+   '<div class="fg"><label class="fl">'+t("phone")+'</label><input id="u_phone" class="fi" value="'+esc(u?u.phone||"":"")+'"></div>'+
+   '<div class="fg"><label class="fl">'+t("status")+'</label><select id="u_active" class="fi"><option value="1"'+((!u||u.active)?' selected':'')+'>'+t("active")+'</option><option value="0"'+((u&&!u.active)?' selected':'')+'>Off</option></select></div>'+
+   '<div class="fg"><label class="fl"><i class="fas fa-user-pen" style="color:var(--accent)"></i> '+t("perm_edit")+'</label><select id="u_canedit" class="fi"><option value="0"'+((!u||!u.can_edit_entries)?' selected':'')+'>Off</option><option value="1"'+((u&&u.can_edit_entries)?' selected':'')+'>'+t("active")+' (ON)</option></select></div>'+
+   '<div class="fg"><label class="fl">'+t("allowed_steps")+'</label><div class="chk-grid">'+chk+'</div></div>'+
+  '</div>'+
+  '<div class="modal-f"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveUser('+(u?u.id:0)+')"><i class="fas fa-save"></i> '+t("save")+'</button></div>'+
+ '</div></div>';
+}
+async function saveUser(id){
+ var steps=[];document.querySelectorAll(".ustep:checked").forEach(function(c){steps.push(c.value)});
+ var r={name:$("u_name").value.trim(),email:$("u_email").value.trim(),password:$("u_pass").value,role:$("u_role").value,phone:$("u_phone").value.trim(),allowed_steps:steps.join(","),can_edit_entries:$("u_canedit").value==="1",active:$("u_active").value==="1"};
+ if(!r.name||!r.email){toast("Name & email required","warning");return}
+ try{
+  if(id){await dbUpdate("app_users",id,r);if(user&&user.id===id){user=Object.assign({},user,r);saveSession()}toast(t("saved"),"success")}
+  else{await dbInsert("app_users",r);toast("User added","success")}
+  closeModal();render()
+ }catch(e){toast("Error: "+e.message,"error")}
+}
+
+async function pageSettings(v){
+ var live=!!sb;var prods=await getProducts();var cols=await getColors();
+ v.innerHTML='<div class="chart-grid" style="grid-template-columns:1fr 1fr">'+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-cubes"></i> '+t("products")+' <span class="badge b-info">'+prods.length+'</span></h5></div><div class="panel-b">'+
+   '<div class="tw"><table class="dt"><thead><tr><th>'+t("product")+'</th><th>'+t("cavity")+'</th><th></th></tr></thead><tbody>'+
+   prods.map(function(p){return '<tr><td><strong>'+esc(p.name)+'</strong></td><td>'+p.cavity+'</td><td><button class="btn btn-outline btn-sm" onclick="delProduct('+p.id+')"><i class="fas fa-trash" style="color:var(--danger)"></i></button></td></tr>'}).join("")+
+   '</tbody></table></div>'+
+   '<div class="filters" style="margin-top:12px"><div class="fg" style="flex:1"><input id="np_name" class="fi" placeholder="'+t("product")+' (e.g. 063-E)"></div><div class="fg" style="width:90px"><input id="np_cav" type="number" class="fi" placeholder="'+t("cavity")+'"></div><button class="btn btn-primary" onclick="addProduct()"><i class="fas fa-plus"></i> '+t("add")+'</button></div>'+
+  '</div></div>'+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-palette"></i> '+t("colors_t")+' <span class="badge b-info">'+cols.length+'</span></h5></div><div class="panel-b">'+
+   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+cols.map(function(c){return '<span class="badge b-gray" style="display:inline-flex;align-items:center;gap:6px;font-size:.8em;text-transform:none;padding:6px 10px">'+esc(c.name)+' <i class="fas fa-times" style="cursor:pointer;color:var(--danger)" onclick="delColor('+c.id+')"></i></span>'}).join("")+'</div>'+
+   '<div class="filters"><div class="fg" style="flex:1"><input id="nc_name" class="fi" placeholder="'+t("custom_color")+'"></div><button class="btn btn-primary" onclick="addColor()"><i class="fas fa-plus"></i> '+t("add")+'</button></div>'+
+  '</div></div></div>'+
+  '<div class="panel"><div class="panel-h"><h5><i class="fas fa-building"></i> '+t("company")+'</h5></div><div class="panel-b"><div class="form-row">'+
+   '<div><label class="fl">'+t("name")+'</label><input id="cp_name" class="fi" value="'+esc(COMPANY.name)+'"></div>'+
+   '<div><label class="fl">'+t("tagline")+'</label><input id="cp_tag" class="fi" value="'+esc(COMPANY.tagline)+'"></div>'+
+   '<div><label class="fl">'+t("phone")+'</label><input id="cp_phone" class="fi" value="'+esc(COMPANY.phone)+'"></div>'+
+   '<div><label class="fl">'+t("email")+'</label><input id="cp_email" class="fi" value="'+esc(COMPANY.email)+'"></div>'+
+   '<div><label class="fl">'+t("gst")+'</label><input id="cp_gst" class="fi" value="'+esc(COMPANY.gst)+'"></div>'+
+   '<div><label class="fl">'+t("logo")+'</label><input id="cp_logo" class="fi" value="'+esc(COMPANY.logo)+'" placeholder="https://...png"></div>'+
+   '<div style="grid-column:1/-1"><label class="fl">'+t("name_addr")+'</label><input id="cp_addr" class="fi" value="'+esc(COMPANY.address)+'"></div>'+
+  '</div><button class="btn btn-primary" style="margin-top:14px" onclick="saveCompany()"><i class="fas fa-save"></i> '+t("save")+'</button></div></div>'+
+  '<div class="chart-grid" style="grid-template-columns:1fr 1fr">'+
+   '<div class="panel"><div class="panel-h"><h5><i class="fas fa-database"></i> '+t("data_backup")+'</h5></div><div class="panel-b">'+
+    '<button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:10px" onclick="repCSVall()"><i class="fas fa-file-csv"></i> '+t("dl_csv")+'</button>'+
+    '<button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:10px" onclick="dlJSON()"><i class="fas fa-file-code"></i> '+t("dl_json")+'</button>'+
+    '<button class="btn btn-accent" style="width:100%;justify-content:center" onclick="backupSheets()"><i class="fas fa-table"></i> '+t("gsheet")+'</button></div></div>'+
+   '<div class="panel"><div class="panel-h"><h5><i class="fas fa-sliders"></i> '+t("prefs")+'</h5></div><div class="panel-b">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="color:var(--muted)">'+t("language")+'</span><button class="btn btn-outline btn-sm" onclick="toggleLang()">'+(lang==="en"?"English ↔ हिंदी":"हिंदी ↔ English")+'</button></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="color:var(--muted)">'+t("theme")+'</span><button class="btn btn-outline btn-sm" onclick="toggleTheme()">'+(theme==="dark"?"Dark 🌙":"Light ☀️")+'</button></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--muted)">'+t("backend")+'</span><span class="badge '+(live?"b-success":"b-warning")+'">'+(live?t("live"):t("demo"))+'</span></div></div></div>'+
+  '</div>';
+}
+async function addProduct(){var n=$("np_name").value.trim(),c=+$("np_cav").value||0;if(!n||!c){toast(t("product")+" + "+t("cavity"),"warning");return}try{await dbInsert("products",{name:n,cavity:c});toast(t("saved"),"success");render()}catch(e){toast("Error: "+e.message,"error")}}
+async function delProduct(id){try{await dbDelete("products",id);render()}catch(e){toast("Error: "+e.message,"error")}}
+async function addColor(){var n=$("nc_name").value.trim();if(!n){toast(t("custom_color"),"warning");return}try{await dbInsert("colors",{name:n});toast(t("saved"),"success");render()}catch(e){toast("Error: "+e.message,"error")}}
+async function delColor(id){try{await dbDelete("colors",id);render()}catch(e){toast("Error: "+e.message,"error")}}
+async function saveCompany(){
+ var c={id:1,name:$("cp_name").value.trim(),tagline:$("cp_tag").value.trim(),phone:$("cp_phone").value.trim(),email:$("cp_email").value.trim(),gst:$("cp_gst").value.trim(),logo:$("cp_logo").value.trim(),address:$("cp_addr").value.trim()};
+ try{if(sb){await sb.from("company_profile").upsert(c)}else mem.company_profile[0]=c;COMPANY=Object.assign({},COMPANY,c);toast(t("saved"),"success");render()}catch(e){toast("Error: "+e.message,"error")}
+}
+
+/* ===================== ACTIONS ===================== */
+function toggleLang(){lang=lang==="en"?"hi":"en";render()}
+function toggleTheme(){theme=theme==="dark"?"light":"dark";render()}
+async function doLogin(){
+ var e=$("le").value.trim(),p=$("lp").value,b=$("lbtn");
+ if(!e||!p){toast(t("badlogin"),"warning");return}
+ b.disabled=true;b.innerHTML='<i class="fas fa-spinner fa-spin"></i> …';
+ try{var u=await dbLogin(e,p);
+  if(u){user=u;saveSession();page="dashboard";$("wtext").textContent=(lang==="hi"?"स्वागत है, ":"Welcome, ")+(u.name||"");$("welcome").classList.add("show");setTimeout(function(){render();setTimeout(function(){$("welcome").classList.remove("show")},500)},900)}
+  else{b.disabled=false;b.innerHTML='<i class="fas fa-sign-in-alt"></i> '+t("login");toast(t("badlogin"),"error")}
+ }catch(err){b.disabled=false;b.innerHTML='<i class="fas fa-sign-in-alt"></i> '+t("login");toast("Connection error","error")}
+}
+function saveSession(){try{localStorage.setItem("vap_pms_user",JSON.stringify(user))}catch(e){}}
+function loadSessionUser(){try{var s=localStorage.getItem("vap_pms_user");return s?JSON.parse(s):null}catch(e){return null}}
+function clearSession(){try{localStorage.removeItem("vap_pms_user")}catch(e){}}
+function logout(){user=null;clearSession();render()}
+
+function toCSV(rows){if(!rows.length)return"";var h=Object.keys(rows[0]);return [h.join(",")].concat(rows.map(function(r){return h.map(function(k){return '"'+String(r[k]==null?"":r[k]).replace(/"/g,'""')+'"'}).join(",")})).join("\n")}
+function dl(name,txt,type){var b=new Blob([txt],{type:type});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function repCSV(){dl("report_"+dstr(new Date())+".csv",toCSV(window._rep||[]),"text/csv");toast("CSV downloaded","success")}
+async function repCSVall(){dl("batch_steps_"+dstr(new Date())+".csv",toCSV(await dbAll("batch_steps")),"text/csv");toast("CSV downloaded","success")}
+function repExcel(){var rows=window._rep||[];var keys=Object.keys(rows[0]||{step_no:""});var h='<table border="1"><tr>'+keys.map(function(k){return "<th>"+k+"</th>"}).join("")+"</tr>"+rows.map(function(r){return "<tr>"+keys.map(function(k){return "<td>"+(r[k]==null?"":r[k])+"</td>"}).join("")+"</tr>"}).join("")+"</table>";dl("report_"+dstr(new Date())+".xls",h,"application/vnd.ms-excel");toast("Excel downloaded","success")}
+function repPrint(){var rows=window._rep||[];var w=open("","","width=1000,height=700");w.document.write('<html><head><title>'+esc(COMPANY.name)+' — Report</title><style>body{font-family:Arial;padding:24px}h2{color:#0f2557}th{background:#0f2557;color:#fff;padding:9px;text-align:left;font-size:11px}td{padding:7px 9px;border-bottom:1px solid #e5e7eb;font-size:11px}table{width:100%;border-collapse:collapse}.f{margin-top:20px;text-align:center;color:#6b7280;font-size:11px;border-top:1px solid #e5e7eb;padding-top:12px}</style></head><body><h2>'+esc(COMPANY.name)+' — Production Report</h2><div style="color:#6b7280;font-size:12px;margin-bottom:16px">'+esc(COMPANY.address||"")+' · '+FILTER.from+' to '+FILTER.to+' · '+new Date().toLocaleString()+'</div><table><thead><tr><th>Date</th><th>Batch</th><th>Color</th><th>Step</th><th>Operator</th><th>Qty</th><th>Good</th><th>Scrap</th><th>Sold</th></tr></thead><tbody>'+rows.map(function(s){return '<tr><td>'+(s.created_at||"").slice(0,10)+'</td><td>'+(s.batch_no||"")+'</td><td>'+(s.color||"")+'</td><td>Step '+s.step_no+'</td><td>'+(s.operator||"")+'</td><td>'+s.qty+'</td><td>'+s.good_qty+'</td><td>'+s.scrap_qty+'</td><td>'+(s.sale_qty||0)+'</td></tr>'}).join("")+'</tbody></table><div class="f">Developed By Sunil Tiwari · 9027965956 · connect@systemmaster.in · systemmaster.in</div></body></html>');w.document.close();setTimeout(function(){w.print()},500)}
+async function dlJSON(){var all={app_users:await dbAll("app_users"),batches:await dbAll("batches"),batch_steps:await dbAll("batch_steps"),step_entries:await dbAll("step_entries"),sales:await dbAll("sales"),scrap_lots:await dbAll("scrap_lots"),products:await dbAll("products"),colors:await dbAll("colors"),company:[COMPANY]};dl("mes_backup_"+dstr(new Date())+".json",JSON.stringify(all,null,2),"application/json");toast("JSON downloaded","success")}
+async function backupSheets(){
+ if(!GSHEET_URL){toast(t("gsheet_off"),"warning");return}
+ var stepsAll=(await dbAll("batch_steps")).map(function(s){var x=Object.assign({},s);x.photo=x.photo?"YES":"";return x});
+ var entAll=(await dbAll("step_entries")).map(function(s){var x=Object.assign({},s);x.photo=x.photo?"YES":"";return x});
+ var tables={Users:await dbAll("app_users"),Batches:await dbAll("batches"),BatchSteps:stepsAll,StepEntries:entAll,Sales:await dbAll("sales"),ScrapLots:await dbAll("scrap_lots"),Products:await dbAll("products"),Colors:await dbAll("colors")};
+ try{await fetch(GSHEET_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({tables:tables})});toast(t("gsheet_done"),"success")}catch(e){toast("Error: "+e.message,"error")}
+}
+
+/* ===================== INIT ===================== */
+(async function(){initSB();await loadCompany();user=loadSessionUser();render()})();
+</script>
